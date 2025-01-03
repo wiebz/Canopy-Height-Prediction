@@ -146,10 +146,14 @@ class Runner:
     def get_dataset_root(dataset_name: str) -> str:
         """Copies the dataset and returns the rootpath."""
         # Determine where the data lies
-        for root in ['/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
+        # for root in ['/Users/wiebkezink/Documents/Uni Münster/MA','/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
+        for root in ['/Users/wiebkezink/Documents/Uni Münster/MA']:
             rootPath = f"{root}{dataset_name}"
             if os.path.isdir(rootPath):
                 break
+        print(f"gefundener dataset Path: {rootPath}")
+
+        # ab hier kann vermutlich alles weg
         is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
         is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
         sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")

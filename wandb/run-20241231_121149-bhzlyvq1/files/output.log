@@ -1,0 +1,20 @@
+Using loss: shift_huberf.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpsu3z0_hu.
+Dataset /mock_dataset is copyable: False.
+Loading /mock_dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset.
+Computed weighting 10.0-quantile-lower bound: 0.09523809523809523.
+Length of train and val splits: 5, 2.
+New length of train and val splits: 5, 2.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+  0%|                                                                                                                   | 0/100 [00:01<?, ?it/s]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpsu3z0_hu.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 109, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 696, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 632, in train
+    loss = self.loss_criteria[self.loss_name](output, y_target)
+KeyError: 'shift_huberf'

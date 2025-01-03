@@ -1,0 +1,16 @@
+{"time":"2024-12-31T11:32:36.583804+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-31T11:32:36.583846+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20241231_113236-geoiu0xf/logs/debug-core.log"}
+{"time":"2024-12-31T11:32:36.694402+01:00","level":"INFO","msg":"created new stream","id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:36.694441+01:00","level":"INFO","msg":"stream: started","id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:36.694622+01:00","level":"INFO","msg":"handler: started","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:36.694757+01:00","level":"INFO","msg":"sender: started","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:36.694759+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:37.036736+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-31T11:32:37.14643+01:00","level":"INFO","msg":"stream: closing","id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:37.146665+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-31T11:32:37.147298+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-31T11:32:38.147535+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-31T11:32:38.419955+01:00","level":"INFO","msg":"handler: closed","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:38.419984+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:38.42002+01:00","level":"INFO","msg":"sender: closed","stream_id":"geoiu0xf"}
+{"time":"2024-12-31T11:32:38.420562+01:00","level":"INFO","msg":"stream: closed","id":"geoiu0xf"}

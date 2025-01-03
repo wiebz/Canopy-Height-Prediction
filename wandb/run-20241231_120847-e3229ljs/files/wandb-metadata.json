@@ -1,0 +1,19 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit",
+  "python": "CPython 3.9.6",
+  "startedAt": "2024-12-31T11:08:48.005771Z",
+  "args": [
+    "--debug"
+  ],
+  "program": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py",
+  "codePath": "training/main.py",
+  "git": {
+    "remote": "https://github.com/wiebz/Canopy-Height-Prediction",
+    "commit": "90ae568b29f573301dcb273f7a2652fc7f8e1972"
+  },
+  "email": "wiebke.zink@yahoo.de",
+  "root": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction",
+  "host": "vpn-pool1-pnt-31634.uni-muenster.de",
+  "executable": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/bin/python",
+  "codePathLocal": "training/main.py"
+}

@@ -1,0 +1,12 @@
+numpy
+pandas
+matplotlib
+seaborn
+torch
+torchvision
+scikit-learn
+scipy
+tqdm
+wandb
+segmentation_models_pytorch
+torchmetrics

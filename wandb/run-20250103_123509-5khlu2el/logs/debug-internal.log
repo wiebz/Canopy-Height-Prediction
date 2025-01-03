@@ -1,0 +1,18 @@
+{"time":"2025-01-03T12:35:09.281183+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-03T12:35:09.281235+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250103_123509-5khlu2el/logs/debug-core.log"}
+{"time":"2025-01-03T12:35:09.393744+01:00","level":"INFO","msg":"created new stream","id":"5khlu2el"}
+{"time":"2025-01-03T12:35:09.393776+01:00","level":"INFO","msg":"stream: started","id":"5khlu2el"}
+{"time":"2025-01-03T12:35:09.393923+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:35:09.394017+01:00","level":"INFO","msg":"handler: started","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:35:09.394072+01:00","level":"INFO","msg":"sender: started","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:35:09.658214+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-03T12:40:45.323473+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-03T12:40:45.324656+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-03T12:40:46.325029+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmptco6uugj/trained_model.pt","runtime_seconds":0.630712458,"progress":"1.8MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-03T12:41:46.444751+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmptco6uugj/trained_model.pt","runtime_seconds":29.992249958,"progress":"119.4MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-03T12:41:48.124032+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-03T12:41:49.596263+01:00","level":"INFO","msg":"stream: closing","id":"5khlu2el"}
+{"time":"2025-01-03T12:41:49.596285+01:00","level":"INFO","msg":"handler: closed","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:41:49.596294+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:41:49.596318+01:00","level":"INFO","msg":"sender: closed","stream_id":"5khlu2el"}
+{"time":"2025-01-03T12:41:49.596472+01:00","level":"INFO","msg":"stream: closed","id":"5khlu2el"}
