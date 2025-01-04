@@ -26,6 +26,8 @@ from metrics import MetricsClass
 from utilities import JointRandomRotationTransform
 from utilities import SequentialSchedulers
 
+import logging
+
 
 class Runner:
     """Base class for all runners, defines the general functions"""
@@ -41,6 +43,19 @@ class Runner:
         self.config = config
         self.debug = debug
 
+        # Task
+        self.task = self.config.get('task', 'baseline')  # baseline, quantile_regression, uncertainty, ensemble
+        valid_tasks = ['baseline', 'quantile_regression', 'uncertainty', 'ensemble']
+        if self.task not in valid_tasks:
+            raise ValueError(f"Invalid task '{self.task}'. Expected one of {valid_tasks}.")
+        
+        # Quantiles (always define, even for tasks that don't use it)
+        self.quantiles = self.config.get('quantiles', [0.5])  # Default to median if not specified
+        if self.task == 'quantile_regression' and len(self.quantiles) < 2:
+            raise ValueError("Quantile regression requires at least two defined quantiles.")
+
+        
+        # Device setup
         n_gpus = torch.cuda.device_count()
         if n_gpus > 0:
             config.update(dict(device='cuda:0'))
@@ -58,21 +73,43 @@ class Runner:
             torch.cuda.device(self.device)
         torch.backends.cudnn.benchmark = True
 
+        # Loss Criteria
+        if self.task == 'uncertainty':  # Gaussian Loss
+            self.loss_criteria = {'gaussian': self.get_loss(loss_name='gaussian')}
+        elif self.task == 'quantile_regression':  # Pinball Loss
+            self.loss_criteria = {'pinball': self.get_loss(loss_name='pinball')}
+        else:  # Baseline or other tasks
+            self.loss_criteria = {
+                'l1': self.get_loss(loss_name='l1'),
+                'l2': self.get_loss(loss_name='l2'),
+                # Add more losses if needed
+            }
+  
+        # Ensemble settings
+        self.ensemble_size = self.config.get('ensemble_size', 5)  # Für Ensemble
+
+        # Logging setup
+        logging.basicConfig(level=logging.INFO if not self.debug else logging.DEBUG)
+        self.logger = logging.getLogger(__name__)
+
         # Set a couple useful variables
         self.seed = int(self.config.seed)
-        self.loss_name = self.config.loss_name or 'shift_l1'
-        sys.stdout.write(f"Using loss: {self.loss_name}.\n")
+        self.loss_name = self.config.loss_name # or 'shift_l1'
+        self.logger.info(f"Using loss: {self.loss_name}.")
         self.use_amp = self.config.fp16
         self.tmp_dir = tmp_dir
-        print(f"Using temporary directory {self.tmp_dir}.")
+        self.logger.info(f"Using temporary directory {self.tmp_dir}.")
         self.label_rescaling_factor = 1.
+        if self.config.use_label_rescaling and not isinstance(self.label_rescaling_factor, (int, float)):
+            raise ValueError("Label rescaling factor must be a numeric value.")
         if self.config.use_label_rescaling:
             self.label_rescaling_factor = 60.
             sys.stdout.write(f"Using label rescaling of {self.label_rescaling_factor} - this is hardcoded.\n")
 
         # Variables to be set
         self.loader = {loader_type: None for loader_type in ['train', 'val']}
-        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber']}
+        # self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber']}
+        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['l1', 'l2', 'pinball', 'gaussian']}
         for threshold in [15, 20, 25, 30]:
             self.loss_criteria[f"l1_{threshold}"] = self.get_loss(loss_name=f"l1", threshold=threshold)
 
@@ -81,25 +118,33 @@ class Runner:
         self.model = None
         self.artifact = None
         self.model_paths = {model_type: None for model_type in ['initial', 'trained']}
+        self.model_paths['ensemble'] = []  # Für Ensemble-Modelle
         self.model_metrics = {  # Organized way of saving metrics needed for retraining etc.
         }
 
+        """
         self.metrics = {mode: {'loss': MeanMetric().to(device=self.device),
-                               'shift_l1': MeanMetric().to(device=self.device),
-                               'shift_l2': MeanMetric().to(device=self.device),
-                               'shift_huber': MeanMetric().to(device=self.device),
+                               #'shift_l1': MeanMetric().to(device=self.device),
+                               #'shift_l2': MeanMetric().to(device=self.device),
+                               #'shift_huber': MeanMetric().to(device=self.device),
                                'l1': MeanMetric().to(device=self.device),
                                'l2': MeanMetric().to(device=self.device),
                                'pinball': MeanMetric().to(device=self.device),
-                               'huber': MeanMetric().to(device=self.device),
+                               #'huber': MeanMetric().to(device=self.device),
                                }
                         for mode in ['train', 'val']}
 
         for mode in ['train', 'val']:
             for threshold in [15, 20, 25, 30]:
                 self.metrics[mode][f"l1_{threshold}"] = MeanMetric().to(device=self.device)
+        """
+
+        self.metrics = {mode: {**{metric: MeanMetric().to(self.device) for metric in ['loss', 'l1', 'l2', 'pinball', 'gaussian']},
+                       **{f"l1_{threshold}": MeanMetric().to(self.device) for threshold in [15, 20, 25, 30]}}
+                for mode in ['train', 'val']}
 
         self.metrics['train']['ips_throughput'] = MeanMetric().to(device=self.device)
+
 
     @staticmethod
     def set_seed(seed: int):
@@ -140,6 +185,7 @@ class Runner:
                         # Catch case where MeanMetric mode not set yet
                         loggingDict[f"{split}/{metric_name}"] = metric.compute()
                     except Exception as e:
+                        self.logger.debug(f"Metric computation failed for {metric_name}: {e}")
                         continue
 
         return loggingDict
@@ -149,70 +195,27 @@ class Runner:
         """Copies the dataset and returns the rootpath."""
         # Determine where the data lies
         # for root in ['/Users/wiebkezink/Documents/Uni Münster/MA','/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
-        for root in ['/Users/wiebkezink/Documents/Uni Münster/MA']:
-            rootPath = f"{root}{dataset_name}"
-            if os.path.isdir(rootPath):
-                break
+
+        rootPath = next((f"{root}{dataset_name}" for root in ['/Users/wiebkezink/Documents/Uni Münster/MA'] if os.path.isdir(f"{root}{dataset_name}")), None)
         print(f"gefundener dataset Path: {rootPath}")
+        if not rootPath:
+            raise FileNotFoundError(f"Dataset root path for {dataset_name} not found.")
 
-        # ab hier kann vermutlich alles weg
-        """
-        is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
-        is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
-        sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")
-
-        if is_copyable:
-            # We copy the data to have it on locally attached hardware
-            local = '/scratch/local/'
-            if not os.path.isdir(os.path.join(local, 'mzimmer')): os.mkdir(os.path.join(local, 'mzimmer'))
-            local = local + 'mzimmer/'
-            localPath = f"{local}{dataset_name}"
-            inProcessFile = os.path.join(local, f"{dataset_name}-inprocess.lock")
-            doneFile = os.path.join(local, f"{dataset_name}-donefile.lock")
-
-            wait_it = 0
-            while True:
-                is_done = os.path.exists(doneFile) and os.path.isdir(f"{local}{dataset_name}")
-                is_busy = os.path.exists(inProcessFile)
-                if is_done:
-                    # Dataset exists locally, continue with the training
-                    rootPath = f"{local}{dataset_name}"
-                    print("Local data storage: Done file exists.")
-                    break
-                elif is_busy:
-                    # Wait for 10 seconds, then check again
-                    time.sleep(10)
-                    print("Local data storage: Is still busy - wait.")
-                    continue
-                else:
-                    # Create the inProcessFile
-                    open(inProcessFile, mode='a').close()
-
-                    # Copy the dataset
-                    print("Local data storage: Starts copying.")
-                    shutil.copytree(src=rootPath, dst=localPath)
-                    print("Local data storage: Copying done.")
-                    # Create the doneFile
-                    open(doneFile, mode='a').close()
-
-                    # Remove the inProcessFile
-                    os.remove(inProcessFile)
-
-                wait_it += 1
-                if wait_it == 360:
-                    # Waited 1 hour, this should be done by now, check for errors
-                    raise Exception("Waiting time too long.")
-        """
         return rootPath
 
     def get_dataloaders(self):
         rootPath = self.get_dataset_root(dataset_name=self.config.dataset)
-        print(f"Loading {self.config.dataset} dataset from {rootPath}.")
+        self.logger.info(f"Loading {self.config.dataset} dataset from {rootPath}.")
 
         data_path = rootPath
         train_dataframe = os.path.join(rootPath, 'train.csv')
         val_dataframe = os.path.join(rootPath, 'val.csv')
         fix_val_dataframe = os.path.join(rootPath, 'fix_val.csv')
+
+        assert os.path.exists(train_dataframe), f"Train dataframe {train_dataframe} not found."
+        assert os.path.exists(val_dataframe), f"Validation dataframe {val_dataframe} not found."
+        assert os.path.exists(fix_val_dataframe), f"Fix validation dataframe {fix_val_dataframe} not found."
+
 
         transformDict = {split: None for split in ['train', 'val']}
         base_transform = transforms.ToTensor()
@@ -228,7 +231,7 @@ class Runner:
             assert not self.config.use_standardization, "Mutually exclusive options: use_standardization and use_input_clipping."
             use_input_clipping = int(self.config.use_input_clipping)
             assert use_input_clipping in [1, 2, 5], "use_input_clipping must be in [False, None, 1, 2, 5]."
-            sys.stdout.write(f"Using input clipping of in the {use_input_clipping}-{100-use_input_clipping}-range.\n")
+            self.logger.info(f"Using input clipping in the {use_input_clipping}-{100-use_input_clipping}-range.")
             input_clipping_lower_bound = percentileDict[self.config.dataset][use_input_clipping]
             input_clipping_upper_bound = percentileDict[self.config.dataset][100 - use_input_clipping]
 
@@ -249,7 +252,7 @@ class Runner:
 
         joint_transforms = None # Train transforms that are both applied to the image and the label
         if self.config.use_augmentation:
-            sys.stdout.write(f"Using JointRandomRotationTransform.\n")
+            self.logger.info("Using JointRandomRotationTransform.")
             joint_transforms = JointRandomRotationTransform()
 
         use_weighted_sampler = self.config.use_weighted_sampler or False
@@ -269,7 +272,7 @@ class Runner:
             # Reduce the size of the validation dataset using self.seed as the random seed
             # Perform a random split using a generator with self.seed as the seed
             valData, _ = torch.utils.data.random_split(valData, [cut_off, len(valData) - cut_off], generator=torch.Generator().manual_seed(self.seed))
-        sys.stdout.write(f"New length of train and val splits: {len(trainData)}, {len(valData)}.\n")
+        self.logger.warning(f"Validation dataset is large, reducing to a maximum of {cut_off} samples.")
 
 
         num_workers_default = self.config.num_workers_per_gpu if self.config.num_workers_per_gpu is not None else 8
@@ -288,8 +291,90 @@ class Runner:
                                                 pin_memory=torch.cuda.is_available(), num_workers=num_workers)
         fixvalLoader = torch.utils.data.DataLoader(fixvalData, batch_size=2, shuffle=False, # This only works with batch_size=2
                                                 pin_memory=torch.cuda.is_available(), num_workers=num_workers)
+        
+        if not trainLoader or not valLoader or not fixvalLoader:
+            raise RuntimeError("Failed to initialize dataloaders. Please check the dataset paths and configurations.")
 
         return trainLoader, valLoader, fixvalLoader
+    
+
+    def apply_mixup(self, x, y):
+        """
+        Applies Mixup augmentation to the input and target tensors.
+        :param x: Input tensor.
+        :param y: Target tensor.
+        :return: Augmented input and target tensors.
+        """
+        if not self.config.get('use_mixup', False):
+            return x, y  # Mixup ist deaktiviert
+
+        alpha = self.config.get('mixup_alpha', 0.2)
+        beta_distribution = torch.distributions.beta.Beta(alpha, alpha)
+        lam = beta_distribution.sample().to(self.device)
+        index = torch.randperm(x.size(0)).to(self.device)
+        x_mix = lam * x + (1 - lam) * x[index, :]
+        y_mix = lam * y + (1 - lam) * y[index, :]
+        return x_mix, y_mix
+    
+    
+    def adjust_segmentation_head(self, model, task, quantiles, encoder_output_channels):
+        """
+        Adjust segmentation head based on the task.
+        :param model: The base model.
+        :param task: The current task (e.g., 'quantile_regression').
+        :param quantiles: List of quantiles (if task is 'quantile_regression').
+        :param encoder_output_channels: Number of output channels from the encoder.
+        """
+        if task == 'quantile_regression':
+            model.segmentation_head = smp.base.SegmentationHead(
+                in_channels=encoder_output_channels,
+                out_channels=len(quantiles),
+                activation=None,
+                kernel_size=1
+            )
+        elif task == 'uncertainty':
+            model.segmentation_head = smp.base.SegmentationHead(
+                in_channels=encoder_output_channels,
+                out_channels=2,
+                activation=None,
+                kernel_size=1
+            )
+        else:  # Default to baseline task
+            model.segmentation_head = smp.base.SegmentationHead(
+                in_channels=encoder_output_channels,
+                out_channels=1,
+                activation=None,
+                kernel_size=1
+            )
+
+    def load_state_dict(self, model, model_path):
+        """
+        Load a model's state_dict and handle DataParallel wrapping.
+        :param model: The model to load the state_dict into.
+        :param model_path: Path to the state_dict file.
+        """
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model path '{model_path}' does not exist.")
+        try:
+            state_dict = torch.load(model_path, map_location=self.device)
+        except Exception as e:
+            raise RuntimeError(f"Error loading model from '{model_path}': {e}")
+
+        new_state_dict = OrderedDict()
+        require_DP_format = isinstance(model, torch.nn.DataParallel)
+        for k, v in state_dict.items():
+            is_in_DP_format = k.startswith("module.")
+            if require_DP_format and is_in_DP_format:
+                name = k
+            elif require_DP_format and not is_in_DP_format:
+                name = "module." + k
+            elif not require_DP_format and is_in_DP_format:
+                name = k[7:]  # Strip 'module.'
+            else:
+                name = k
+            new_state_dict[name] = v
+        model.load_state_dict(new_state_dict)
+
 
     def get_model(self, reinit: bool, model_path: Optional[str] = None) -> torch.nn.Module:
         """
@@ -301,13 +386,13 @@ class Runner:
         :return: The model.
         :rtype: torch.nn.Module
         """
-        print(
-            f"Loading model - reinit: {reinit} | path: {model_path if model_path else 'None specified'}.")
+        self.logger.info(f"Loading model - reinit: {reinit} | path: {model_path if model_path else 'None specified'}.")
+
         if reinit:
             # Define the model
             arch = self.config.arch or 'unet'
             backbone = self.config.backbone or 'resnet50'
-            sys.stdout.write(f"Using architecture {arch}.\n")
+            self.logger.info(f"Using architecture {arch}.")
             assert arch in ['unet', 'unetpp', 'manet', 'linknet', 'fpn', 'pspnet', 'pan', 'deeplabv3', 'deeplabv3p']
             network_config = {
                 "encoder_name": backbone,
@@ -334,36 +419,19 @@ class Runner:
             elif arch == 'deeplabv3p':
                 model = smp.DeepLabV3Plus(**network_config)
 
-            """
-            # Replace the segmentation head with a custom head if necessary
-            if hasattr(model, 'segmentation_head'):
-                model.segmentation_head = nn.Conv2d(
-                    in_channels=model.encoder.out_channels[-1],
-                    out_channels=3,  # Quantile regression outputs 3 channels
-                    kernel_size=1,
-                )
-            else:
-
-            # Alternatively, manually replace the last layer if segmentation_head is not available
-                model.add_module("quantile_head", nn.Conv2d(
-                    in_channels=model.decoder.out_channels[-1],
-                    out_channels=3,  # 3 quantiles
-                    kernel_size=1,
-                ))
-            """
             # Debugging: Print encoder output channels
-            print(f"Encoder output channels: {model.encoder.out_channels}")
+            self.logger.debug(f"Debugging: Encoder output channels: {model.encoder.out_channels}.")
+
 
             # Adjust Segmentation Head to handle channel mismatch
-            encoder_output_channels = model.encoder.out_channels[-1]  # Get encoder output channels
-            print(f"Adjusting SegmentationHead with encoder output channels: {encoder_output_channels}")
+            # Adjust segmentation head
+            encoder_output_channels = model.encoder.out_channels[-1]
+            self.adjust_segmentation_head(model, self.task, self.quantiles, encoder_output_channels)
 
-            model.segmentation_head = smp.base.SegmentationHead(
-                in_channels=encoder_output_channels,  # Match encoder's output channels
-                out_channels=3,  # Quantiles: 0.1, 0.5, 0.9
-                activation=None,  # No activation; handled in the loss function
-                kernel_size=1  # Standard for segmentation heads
-            )
+            # Load state_dict if provided
+            if model_path:
+                self.load_state_dict(model, model_path)
+
 
             # Wrap the model with a custom forward method
             class CustomForwardWrapper(torch.nn.Module):
@@ -393,7 +461,13 @@ class Runner:
 
         if model_path is not None:
             # Load the model
-            state_dict = torch.load(model_path, map_location=self.device)
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model path '{model_path}' does not exist.")
+            try:
+                state_dict = torch.load(model_path, map_location=self.device)
+            except Exception as e:
+                raise RuntimeError(f"Error loading model from path '{model_path}': {e}")
+
 
             new_state_dict = OrderedDict()
             require_DP_format = isinstance(model,
@@ -420,14 +494,18 @@ class Runner:
         return model
 
     def get_loss(self, loss_name: str, threshold: float = None):
-        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber'], f"Loss {loss_name} not implemented."
+        # assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber'], f"Loss {loss_name} not implemented."
+        assert loss_name in ['l1', 'l2', 'pinball', 'gaussian'], f"Loss {loss_name} not implemented."
         if threshold is not None:
+            if not isinstance(threshold, (int, float)):
+                raise ValueError("Threshold must be a numeric value.")
             assert loss_name == 'l1', f"Threshold only implemented for l1 loss, not {loss_name}."
+
         # Dim 1 is the channel dimension, 0 is batch.
         # Sums up to get average height, could be mean without zeros
         remove_sub_track = lambda out, target: (out, torch.sum(target, dim=1))
 
-        if loss_name == 'shift_l1':
+        """if loss_name == 'shift_l1':
             from losses.shift_l1_loss import ShiftL1Loss
             loss = ShiftL1Loss(ignore_value=0)
         elif loss_name == 'shift_l2':
@@ -435,8 +513,8 @@ class Runner:
             loss = ShiftL2Loss(ignore_value=0)
         elif loss_name == 'shift_huber':
             from losses.shift_huber_loss import ShiftHuberLoss
-            loss = ShiftHuberLoss(ignore_value=0)
-        elif loss_name == 'l1':
+            loss = ShiftHuberLoss(ignore_value=0)"""
+        if loss_name == 'l1':
             from losses.l1_loss import L1Loss
             # Rescale the threshold to account for the label rescaling
             if threshold is not None:
@@ -448,9 +526,12 @@ class Runner:
         elif loss_name == 'pinball':
             from losses.pinball_loss import PinballLoss
             loss = PinballLoss(ignore_value=0, pre_calculation_function=remove_sub_track)
-        elif loss_name == 'huber':
+        elif loss_name == 'gaussian':
+            from losses.gaussian_loss import GaussianNLLLoss
+            loss = GaussianNLLLoss(ignore_value=0, pre_calculation_function=remove_sub_track)
+        """elif loss_name == 'huber':
             from losses.huber_loss import HuberLoss
-            loss = HuberLoss(ignore_value=0, pre_calculation_function=remove_sub_track, delta=3.0)
+            loss = HuberLoss(ignore_value=0, pre_calculation_function=remove_sub_track, delta=3.0)"""
         loss = loss.to(device=self.device)
         return loss
 
@@ -533,6 +614,9 @@ class Runner:
         :param phase_runtime: The wall-clock time of the current phase.
         :type phase_runtime: float
         """
+        if not wandb.run:
+            raise RuntimeError("Wandb run is not initialized. Please ensure Wandb setup is correct.")
+
         loggingDict = self.get_metrics()
         loggingDict.update({
             'phase_runtime': phase_runtime,
@@ -547,8 +631,37 @@ class Runner:
         wandb.log(loggingDict)
 
     def define_optimizer_scheduler(self):
+        """
+        Define the optimizer and scheduler.
+        """
+        initial_lr = self.config.get('initial_lr', 0.001)  # Default value
+        self.optimizer = self.get_optimizer(initial_lr=initial_lr)
+
+        n_total_iterations = self.config.n_iterations
+        n_lr_cycles = self.config.n_lr_cycles or 0
+        cyclic_mode = self.config.cyclic_mode or 'triangular2'
+        n_warmup_iterations = int(0.1 * n_total_iterations) if n_lr_cycles == 0 else 0
+        n_remaining_iterations = n_total_iterations - n_warmup_iterations
+
+        # Call create_scheduler to get the schedulers
+        warmup_scheduler, main_scheduler = self.create_scheduler(
+            warmup_iterations=n_warmup_iterations,
+            remaining_iterations=n_remaining_iterations,
+            initial_lr=initial_lr,
+            cyclic_mode=cyclic_mode
+        )
+
+        # Combine warmup and main scheduler if necessary
+        self.scheduler = SequentialSchedulers(
+            optimizer=self.optimizer,
+            schedulers=[s for s in [warmup_scheduler, main_scheduler] if s],
+            milestones=[n_warmup_iterations + 1] if warmup_scheduler else []
+        )
+
+    """
+    def define_optimizer_scheduler(self):
         # Define the optimizer
-        initial_lr = self.config.initial_lr
+        initial_lr = self.config.get('initial_lr', 0.001)  # Standardwert hinzufügen
         self.optimizer = self.get_optimizer(initial_lr=initial_lr)
 
         # We define a scheduler. All schedulers work on a per-iteration basis
@@ -589,6 +702,7 @@ class Runner:
         else:
             self.scheduler = SequentialSchedulers(optimizer=self.optimizer, schedulers=[warmup_scheduler, scheduler],
                                                   milestones=[milestone])
+    """
 
     @torch.no_grad()
     def eval(self, data: str):
@@ -597,12 +711,41 @@ class Runner:
         :param data: string indicating the data set to evaluate on. Can be 'train' or 'val'.
         :type data: str
         """
-        sys.stdout.write(f"Evaluating on {data} split.\n")
+
+        self.logger.info(f"Evaluating on {data} split.")
         for step, (x_input, y_target) in enumerate(tqdm(self.loader[data]), 1):
             x_input = x_input.to(self.device, non_blocking=True)
             y_target = y_target.to(self.device, non_blocking=True)
 
+            if self.task == 'ensemble':
+                ensemble_outputs = []
+                for model_path in self.model_paths['ensemble']:  # Lade jedes Modell im Ensemble
+                    self.model.load_state_dict(torch.load(model_path))
+                    self.model.eval()
+                    with autocast(enabled=self.use_amp):
+                        output = self.model(x_input)
+                    ensemble_outputs.append(output)
+                final_output = torch.stack(ensemble_outputs).mean(dim=0)
+                loss = self.loss_criteria[self.loss_name](final_output, y_target)
+            else:
+                with autocast(enabled=self.use_amp):
+                    output = self.model.eval()(x_input)
+                    loss = self.loss_criteria[self.loss_name](output, y_target)
 
+            # Log für Quantile Regression
+            if self.task == 'quantile_regression':
+                for i, q in enumerate(self.quantiles):
+                    wandb.log({f'val/quantile_{q}': output[:, i].mean().item()}, commit=False)
+
+            # Log für Unsicherheiten
+            if self.task == 'uncertainty':
+                mean, log_variance = output[:, 0], output[:, 1]
+                wandb.log({
+                    'val/mean_prediction': mean.mean().item(),
+                    'val/variance_prediction': log_variance.exp().mean().item()
+                }, commit=False)
+
+            """
             with autocast(enabled=self.use_amp):
                 output = self.model.eval()(x_input)
                 loss = self.loss_criteria[self.loss_name](output, y_target)
@@ -612,6 +755,15 @@ class Runner:
                     # Check if the metric_loss is nan
                     if not torch.isnan(metric_loss):
                         self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
+            """
+
+            # Metriken berechnen
+            self.metrics[data]['loss'](value=loss, weight=len(y_target))
+            for loss_type in self.loss_criteria.keys():
+                metric_loss = self.loss_criteria[loss_type](output, y_target)
+                if not torch.isnan(metric_loss):
+                    self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
+
 
             if step <= 4:
                 # Create the visualizations for the first 4 batches
@@ -629,7 +781,8 @@ class Runner:
         viz_fn = visualization.get_input_output_visualization(rgb_channels=[6, 5, 4],
                                                                   process_variables=remove_sub_track_vis_wout_labels)
         loggingDict = dict()
-        for x_input, fileNames in tqdm(self.loader['fix_val']):
+        for x_input, fileNames in tqdm(self.loader['fix_val'], desc="Processing fixval samples"):
+            self.logger.info(f"Processing fixval sample {fileNames}.")
             x_input = x_input.to(self.device, non_blocking=True)
             with autocast(enabled=self.use_amp):
                 output = self.model.eval()(x_input)
@@ -649,27 +802,88 @@ class Runner:
                 loggingDict[f"fixval/max_{name}"] = max_val.item()
         wandb.log(loggingDict, commit=False)
 
+    def create_scheduler(self, warmup_iterations, remaining_iterations, initial_lr, cyclic_mode):
+        """
+        Create and return the warmup and main scheduler.
+        :param warmup_iterations: Number of iterations for the warmup scheduler.
+        :param remaining_iterations: Number of iterations for the main scheduler.
+        :param initial_lr: The initial learning rate.
+        :param cyclic_mode: Mode for the CyclicLR scheduler.
+        :return: warmup_scheduler, main_scheduler
+        """
+        warmup_scheduler = None
+        if warmup_iterations > 0:
+            warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+                self.optimizer,
+                start_factor=1e-20,  # Avoid division by zero
+                end_factor=1.0,
+                total_iters=warmup_iterations
+            )
+
+        main_scheduler = torch.optim.lr_scheduler.CyclicLR(
+            self.optimizer,
+            base_lr=0.0,
+            max_lr=initial_lr,
+            step_size_up=remaining_iterations // 2,
+            mode=cyclic_mode,
+            cycle_momentum=False
+        ) if remaining_iterations > 0 else torch.optim.lr_scheduler.LinearLR(
+            self.optimizer,
+            start_factor=1.0,
+            end_factor=0.0,
+            total_iters=remaining_iterations
+        )
+
+        return warmup_scheduler, main_scheduler
+
+
     def train(self):
+        if self.task == 'ensemble':
+            self.model_paths['ensemble'] = []  # Sicherstellen, dass die Liste leer ist
+            ensemble = []
+            for i in range(self.ensemble_size):
+                self.logger.info(f"Training model {i+1}/{self.ensemble_size} in the ensemble.")
+                self.model = self.get_model(reinit=True)  # Reinitialisiere das Modell
+                self.train_single_model()  # Trainiere ein Modell
+                model_path = self.save_model(f'ensemble_model_{i}', sync=False)  # Speichere das Modell
+                ensemble.append(model_path)
+            self.model_paths['ensemble'] = ensemble
+        else:
+            self.train_single_model()
+
+
+    def train_single_model(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
         ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        if not self.use_amp:
+            self.logger.warning("AMP is disabled. Autocast will not be used.")
 
         self.reset_averaged_metrics()
         phase_start = time.time()
 
+        self.logger.info("Starting single model training.")
+
         # Define the Stochastic Weight Averaging model
         swa_model = None
-        if self.config.use_swa:
+        swa_start = None
+        if self.config.get('use_swa', False):
             swa_model = torch.optim.swa_utils.AveragedModel(self.model)
             swa_start = max(1, int(0.75 * n_iterations))
-            sys.stdout.write(f"SWA model will be updated from iteration {swa_start} onwards.\n")
+            self.logger.info(f"SWA model will be updated from iteration {swa_start} onwards.")
 
+        """
         # Define the distribution of mixup
-        if self.config.use_mixup:
+        use_mixup = self.config.get('use_mixup', False)
+        if use_mixup:
             alpha = 0.2
+            if not (0 < alpha < 1):
+                raise ValueError("Mixup alpha must be between 0 and 1.")
             beta_distribution = torch.distributions.beta.Beta(alpha, alpha)
             sys.stdout.write(f"Using mixup with alpha={alpha}. Example sample: {beta_distribution.sample()}\n")
+        """
 
-        for step in tqdm(range(1, n_iterations + 1, 1)):
+        for step in tqdm(range(1, n_iterations + 1, 1), desc="Training Progress"):
+            self.logger.debug(f"Starting iteration {step}/{n_iterations}.")
             # Reinitialize the train iterator if it reaches the end
             if step == 1 or (step - 1) % len(self.loader['train']) == 0:
                 train_iterator = iter(self.loader['train'])
@@ -679,56 +893,77 @@ class Runner:
             x_input = x_input.to(device=self.device, non_blocking=True)
             y_target = y_target.to(device=self.device, non_blocking=True)
 
-            if self.config.use_mixup:
-                # Sample from the beta distribution with alpha=0.2
-                with torch.no_grad():
-                    lam = beta_distribution.sample().to(self.device)
-                    index = torch.randperm(x_input.size(0)).to(self.device)
-                    x_input = lam * x_input + (1 - lam) * x_input[index, :]
-                    y_target = lam * y_target + (1 - lam) * y_target[index, :]
+            x_input, y_target = self.apply_mixup(x_input, y_target)
 
             self.optimizer.zero_grad()
-
             itStartTime = time.time()
+
+            # Forward pass with autocast for mixed precision
             with autocast(enabled=self.use_amp):
                 output = self.model.train()(x_input)
                 loss = self.loss_criteria[self.loss_name](output, y_target)
-                ampGradScaler.scale(loss).backward()  # Scaling + Backpropagation
-                # Unscale the weights manually, normally this would be done by ampGradScaler.step(), but since
-                # we might use gradient clipping, this has to be split
-                ampGradScaler.unscale_(self.optimizer)
-                if self.config.use_grad_clipping:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                #if self.debug and step % 5 == 0:  # Nur jede 5. Iteration
+                #    self.logger.debug(f"Iteration {step}: l1 = {metric_loss.item():.4f}")
 
-                ampGradScaler.step(self.optimizer)
-                ampGradScaler.update()  # This should happen only once per iteration
-                self.scheduler.step()
-                self.metrics['train']['loss'](value=loss, weight=len(y_target))
+                
+            # Check for NaN loss
+            if torch.isnan(loss):
+                self.logger.error(f"Iteration {step}: Loss is NaN. Stopping training.")
+                raise RuntimeError("Nan encountered in training loss.")
+                
+            # Backward pass and optimizer step
+            ampGradScaler.scale(loss).backward()  # Scaling + Backpropagation
+            self.logger.debug(f"Backpropagation completed for iteration {step}.")
+            # Unscale the weights manually, normally this would be done by ampGradScaler.step(), but since
+            # we might use gradient clipping, this has to be split
+            ampGradScaler.unscale_(self.optimizer)
+            if self.config.get('use_grad_clipping', False):
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
-                with torch.no_grad():
-                    for loss_type in self.loss_criteria.keys():
-                        metric_loss = self.loss_criteria[loss_type](output, y_target)
-                        # Check if the metric_loss is nan
+            ampGradScaler.step(self.optimizer)
+            ampGradScaler.update()  # This should happen only once per iteration
+            self.scheduler.step()
+
+            # Log loss and metrics
+            self.metrics['train']['loss'](value=loss, weight=len(y_target))
+            # self.logger.info(f"Iteration {step}: Loss = {loss.item():.4f}")
+
+            with torch.no_grad():
+                for loss_type, criterion in self.loss_criteria.items():
+                    try:
+                        metric_loss = criterion(output, y_target)
                         if not torch.isnan(metric_loss):
                             self.metrics['train'][loss_type](value=metric_loss, weight=len(y_target))
-                itEndTime = time.time()
-                n_img_in_iteration = int(self.config.batch_size)
-                ips = n_img_in_iteration / (itEndTime - itStartTime)  # Images processed per second
-                self.metrics['train']['ips_throughput'](ips)
+                            # self.logger.debug(f"Iteration {step}: {loss_type} = {metric_loss.item():.4f}")
+                    except IndexError as e:
+                        self.logger.warning(f"Loss computation skipped for {loss_type}: {e}")
 
-            if swa_model is not None:
-                if step >= swa_start:
-                    swa_model.update_parameters(self.model)
-                    if step == n_iterations:
-                        sys.stdout.write(f"Last step reached. Setting model to SWA model.\n")
-                        # Set the model to the SWA model by copying the parameters
-                        with torch.no_grad():
-                            for param1, param2 in zip(self.model.parameters(), swa_model.parameters()):
-                                param1.copy_(param2)
-                            swa_model = None
+            
+            # Log throughput
+            itEndTime = time.time()
+            n_img_in_iteration = int(self.config.batch_size)
+            ips = n_img_in_iteration / (itEndTime - itStartTime)  # Images processed per second
+            self.metrics['train']['ips_throughput'](ips)
+            self.logger.debug(f"Iteration {step}: Throughput = {ips:.2f} images/sec.")
 
+            # Update SWA model
+            if swa_model and step >= swa_start:
+                swa_model.update_parameters(self.model)
+            if step == n_iterations and swa_model:
+                self.logger.info("Finalizing SWA model.")
+                torch.optim.swa_utils.update_bn(self.loader['train'], swa_model)
+                self.model = swa_model
+
+            # Summary logging at intervals
             if step % log_freq == 0 or step == n_iterations:
                 phase_runtime = time.time() - phase_start
+                self.logger.info(f"Iteration {step}: Summary after {phase_runtime:.2f}s.")
+
+                # Log metrics to WandB or other tools
+                metrics_summary = {name: metric.compute().item() for name, metric in self.metrics['train'].items()}
+                for metric_name, value in metrics_summary.items():
+                    self.logger.info(f"Metric '{metric_name}': {value:.4f}")
+
                 # Create the visualizations
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
                     viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output)
@@ -737,14 +972,17 @@ class Runner:
                 # Evaluate the validation dataset
                 if not self.debug:
                     self.eval(data='val')
-
-                # Create the fixval plots
-                if not self.debug:
                     self.eval_fixval()
 
                 self.log(step=step, phase_runtime=phase_runtime)
                 self.reset_averaged_metrics()
                 phase_start = time.time()
+
+        # Finalize SWA if enabled
+        if swa_model:
+            self.logger.info("Finalizing SWA model.")
+            torch.optim.swa_utils.update_bn(self.loader['train'], swa_model)
+            self.model = swa_model
 
     def run(self):
         """Controls the execution of the script."""

@@ -34,45 +34,32 @@ class PinballLoss(nn.Module):
         if self.pre_calculation_function is not None:
             out, target = self.pre_calculation_function(out, target)
 
-        """
-        # Ensure shapes are consistent
-        batch_size = target.shape[0]
-        num_quantiles = len(self.quantiles)
-
-        assert out.shape[0] == batch_size, "Output batch size must match target batch size"
-        assert out.shape[1] == num_quantiles, "Output must have a channel for each quantile"
-        """
-
-        # Flatten the tensors
-        """
-        out = out.flatten()
-        target = target.flatten()
-        """
-        """
-        out = out.view(batch_size, num_quantiles, -1)  # [batch_size, quantiles, flattened]
-        target = target.view(batch_size, -1)  # [batch_size, flattened]
-
-        if self.ignore_value is not None:
-            # Mask out ignored values
-            mask = target != self.ignore_value
-            print(f"mask shape: {mask.shape}")
-            print(f"out shape: {out.shape}")
-            print(f"target shape: {target.shape}")
-            out = out[:, :, mask]
-            target = target[mask]
-        """
+        # Check the number of dimensions in the `out` tensor
+        if len(out.shape) == 4:
+            # If 4D, collapse height and width into a single dimension
+            batch_size, num_quantiles, height, width = out.shape
+            spatial_dim = height * width
+            out = out.view(batch_size, num_quantiles, spatial_dim)  # Flatten height and width
+            target = target.view(batch_size, spatial_dim)  # Match target shape
+        elif len(out.shape) == 3:
+            # Already in the expected shape
+            batch_size, num_quantiles, spatial_dim = out.shape
+            target = target.view(batch_size, -1)
+        else:
+            raise ValueError(f"Pinball Unexpected shape for 'out': {out.shape}")
             
         # Reshape tensors to [batch_size, num_quantiles, height * width]
-        batch_size, num_quantiles, height, width = out.shape
-        out = out.view(batch_size, num_quantiles, -1) # [batch_size, num_quantiles, spatial_dim]
-        target = target.view(batch_size, -1)  # [batch_size, spatial_dim]
+        # batch_size, num_quantiles, height, width = out.shape
+        # batch_size, num_quantiles, spatial_dim = out.shape # Expected shapes
+        # out = out.view(batch_size, num_quantiles, -1) # [batch_size, num_quantiles, spatial_dim]
+        # target = target.view(batch_size, -1)  # [batch_size, spatial_dim]
 
         if self.ignore_value is not None:
             # Create mask for valid entries
             mask = target != self.ignore_value # [batch_size, spatial_dim]
-            print(f"mask shape: {mask.shape}")
-            print(f"out shape: {out.shape}")
-            print(f"target shape: {target.shape}")
+            # print(f"Pinball mask shape: {mask.shape}")
+            # print(f"Pinball out shape: {out.shape}")
+            # print(f"Pinball target shape: {target.shape}")
 
             # Expand the mask to match the dimensions of `out`
             mask = mask.unsqueeze(1).expand(-1, num_quantiles, -1)  # [batch_size, num_quantiles, spatial_dim]
@@ -87,13 +74,16 @@ class PinballLoss(nn.Module):
             """
 
         # Initialize loss for each quantile
-        loss = torch.zeros(num_quantiles, device=out.device)
+        #loss = torch.zeros(num_quantiles, device=out.device)
+        loss = []
 
         for i, tau in enumerate(self.taus):
             diff = target - out[:, i]  # [filtered_elements]
-            loss[i] = torch.mean(torch.max(tau * diff, (tau - 1) * diff))
+            tau_loss = torch.max(tau * diff, (tau - 1) * diff)  # Pinball loss
+            #loss[i] = torch.mean(torch.max(tau * diff, (tau - 1) * diff))
+            loss.append(tau_loss.mean())
 
-        return loss.mean()
+        return torch.stack(loss).mean() # loss.mean()
 
         """
         # Compute Pinball loss for each quantile

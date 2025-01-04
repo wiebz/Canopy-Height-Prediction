@@ -1,0 +1,18 @@
+{"time":"2025-01-04T23:04:14.770617+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T23:04:14.770664+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_230414-9hw1p2e8/logs/debug-core.log"}
+{"time":"2025-01-04T23:04:14.877472+01:00","level":"INFO","msg":"created new stream","id":"9hw1p2e8"}
+{"time":"2025-01-04T23:04:14.877515+01:00","level":"INFO","msg":"stream: started","id":"9hw1p2e8"}
+{"time":"2025-01-04T23:04:14.877532+01:00","level":"INFO","msg":"handler: started","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:04:14.877533+01:00","level":"INFO","msg":"sender: started","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:04:14.877589+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:04:15.504175+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T23:05:25.985604+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T23:05:25.986376+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T23:05:26.986942+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpqfxenxnn/trained_model.pt","runtime_seconds":0.797782209,"progress":"2.5MB/124.5MB"},{"desc":"uploading output.log","runtime_seconds":0.630462834,"progress":"362.5KB/362.5KB"}],"total_operations":2}}
+{"time":"2025-01-04T23:06:27.104096+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpqfxenxnn/trained_model.pt","runtime_seconds":10.475726292,"progress":"48.8MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-04T23:06:42.996998+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T23:06:44.46561+01:00","level":"INFO","msg":"stream: closing","id":"9hw1p2e8"}
+{"time":"2025-01-04T23:06:44.465661+01:00","level":"INFO","msg":"handler: closed","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:06:44.465669+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:06:44.465677+01:00","level":"INFO","msg":"sender: closed","stream_id":"9hw1p2e8"}
+{"time":"2025-01-04T23:06:44.465766+01:00","level":"INFO","msg":"stream: closed","id":"9hw1p2e8"}

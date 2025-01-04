@@ -1,0 +1,16 @@
+{"time":"2025-01-04T11:30:04.266132+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T11:30:04.266167+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_113004-y3ji2vd8/logs/debug-core.log"}
+{"time":"2025-01-04T11:30:04.372713+01:00","level":"INFO","msg":"created new stream","id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:04.372745+01:00","level":"INFO","msg":"stream: started","id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:04.372766+01:00","level":"INFO","msg":"handler: started","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:04.372788+01:00","level":"INFO","msg":"sender: started","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:04.372771+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:04.624071+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T11:30:11.017769+01:00","level":"INFO","msg":"stream: closing","id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:11.017797+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T11:30:11.018325+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T11:30:11.604872+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T11:30:11.850747+01:00","level":"INFO","msg":"handler: closed","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:11.850779+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:11.85086+01:00","level":"INFO","msg":"sender: closed","stream_id":"y3ji2vd8"}
+{"time":"2025-01-04T11:30:11.851164+01:00","level":"INFO","msg":"stream: closed","id":"y3ji2vd8"}

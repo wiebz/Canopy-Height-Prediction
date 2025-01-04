@@ -22,6 +22,7 @@ def get_density_scatter_plot_visualization(
     def density_scatter_visualization(
             inputs, labels, outputs, bins=30, height_range=range(1, max_value), **kwargs
     ):
+        # Convert tensors to numpy arrays and squeeze unnecessary dimensions
         inputs = inputs.detach().cpu().numpy().squeeze()
         labels = labels.detach().cpu().numpy().squeeze()
         outputs = outputs.detach().cpu().numpy().squeeze()
@@ -29,8 +30,23 @@ def get_density_scatter_plot_visualization(
         if process_variables is not None:
             inputs, labels, outputs = process_variables(inputs, labels, outputs)
 
-        outputs = outputs[labels != ignore_value]
-        labels = labels[labels != ignore_value]
+        # Ensure labels and outputs have compatible shapes
+        if labels.ndim == 3 and outputs.ndim == 4 and outputs.shape[1] > 1:
+            labels = np.expand_dims(labels, axis=1)  # Expand labels to match output channels
+            labels = np.repeat(labels, outputs.shape[1], axis=1)  # Repeat for each channel
+
+        if labels.shape != outputs.shape:
+            raise ValueError(f"Labels shape {labels.shape} does not match Outputs shape {outputs.shape}.")
+
+        # outputs = outputs[labels != ignore_value]
+        # labels = labels[labels != ignore_value]
+
+
+        # Filter out ignore_value
+        mask = labels != ignore_value
+        outputs = outputs[mask]
+        labels = labels[mask]
+
 
         ax = plt.gca()
         x = np.array(labels).flatten()
@@ -47,7 +63,7 @@ def get_density_scatter_plot_visualization(
             bounds_error=False,
         )
 
-        # To be sure to plot all data
+        # To be sure to plot all data: Handle NaN values in density
         z[np.where(np.isnan(z))] = 0.0
 
         idx = z.argsort()
@@ -61,6 +77,7 @@ def get_density_scatter_plot_visualization(
         plt.xlim([min_value, max_value])
         plt.ylim([min_value, max_value])
 
+        # Add colorbar
         fig = plt.gcf()
         plt.grid(False)
         cbar = fig.colorbar(
@@ -68,6 +85,7 @@ def get_density_scatter_plot_visualization(
         )
         cbar.ax.set_ylabel("Density")
 
+        # Add reference line and labels
         ax.plot(
             height_range, height_range, c="r", linewidth=3, label="x=y", linestyle="--"
         )
@@ -154,7 +172,16 @@ def get_visualization_boxplots(
 
         # Reshape labels and outputs into 1D arrays
         labels_1d = labels.flatten()
+
+        # Reduce outputs across the channel/quantile dimension if necessary
+        if outputs.ndim > labels.ndim:
+            outputs = outputs.mean(axis=1)  # Example: Take mean across channels
+
         outputs_1d = outputs.flatten()
+
+        # Ensure labels_1d and outputs_1d have the same size
+        if labels_1d.shape != outputs_1d.shape:
+            raise ValueError(f"Labels and Outputs do not match after flattening: {labels_1d.shape} vs {outputs_1d.shape}")
 
         # Calculate errors
         errors = outputs_1d - labels_1d

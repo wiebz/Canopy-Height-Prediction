@@ -1,0 +1,37 @@
+INFO:runner:Using loss: gaussian.
+INFO:runner:Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpkw5ejfyn.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset
+INFO:runner:Loading /mock_dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset.
+Computed weighting 10.0-quantile-lower bound: 0.09523809523809523.
+Length of train and val splits: 5, 2.
+WARNING:runner:Validation dataset is large, reducing to a maximum of 3000 samples.
+Using 0 workers.
+INFO:runner:Loading model - reinit: True | path: None specified.
+INFO:runner:Using architecture unet.
+DEBUG:runner:Debugging: Encoder output channels: (14, 64, 256, 512, 1024, 2048).
+WARNING:runner:AMP is disabled. Autocast will not be used.
+INFO:runner:Starting single model training.
+Training Progress:   0%|                                                                                                 | 0/10 [00:00<?, ?it/s]DEBUG:runner:Starting iteration 1/10.
+INFO:runner:Iteration 1: Loss = 0.0386
+DEBUG:runner:Backpropagation completed for iteration 1.
+INFO:runner:Iteration 1: Loss = 0.0386
+DEBUG:runner:Iteration 1: l1 = 0.1400
+DEBUG:runner:Iteration 1: l2 = 0.0330
+Training Progress:   0%|                                                                                                 | 0/10 [00:06<?, ?it/s]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpkw5ejfyn.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 115, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 974, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 834, in train
+    self.train_single_model()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 913, in train_single_model
+    metric_loss = self.loss_criteria[loss_type](output, y_target)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/losses/pinball_loss.py", line 81, in forward
+    diff = target - out[:, i]  # [filtered_elements]
+IndexError: index 2 is out of bounds for dimension 1 with size 2

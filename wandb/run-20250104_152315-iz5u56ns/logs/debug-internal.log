@@ -1,0 +1,20 @@
+{"time":"2025-01-04T15:23:15.714926+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T15:23:15.714982+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_152315-iz5u56ns/logs/debug-core.log"}
+{"time":"2025-01-04T15:23:15.821654+01:00","level":"INFO","msg":"created new stream","id":"iz5u56ns"}
+{"time":"2025-01-04T15:23:15.82169+01:00","level":"INFO","msg":"stream: started","id":"iz5u56ns"}
+{"time":"2025-01-04T15:23:15.821708+01:00","level":"INFO","msg":"sender: started","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:23:15.821728+01:00","level":"INFO","msg":"handler: started","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:23:15.821702+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:23:16.117608+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T15:34:52.785159+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T15:34:52.785714+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T15:34:53.787147+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7e8bbioa/trained_model.pt","runtime_seconds":0.615891375,"progress":"640.0KB/124.6MB"},{"desc":"uploading config.yaml","runtime_seconds":0.394933625,"progress":"1.5KB/1.5KB"},{"desc":"uploading output.log","runtime_seconds":0.394897041,"progress":"64.0KB/192.3KB"}],"total_operations":3}}
+{"time":"2025-01-04T15:35:53.923481+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7e8bbioa/trained_model.pt","runtime_seconds":60.752062458,"progress":"56.4MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:36:54.058852+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7e8bbioa/trained_model.pt","runtime_seconds":120.887275333,"progress":"117.6MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:37:54.190534+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7e8bbioa/trained_model.pt","runtime_seconds":57.114335667,"progress":"93.8MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:38:16.333405+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T15:38:17.778553+01:00","level":"INFO","msg":"stream: closing","id":"iz5u56ns"}
+{"time":"2025-01-04T15:38:17.778594+01:00","level":"INFO","msg":"handler: closed","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:38:17.778611+01:00","level":"INFO","msg":"sender: closed","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:38:17.778612+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"iz5u56ns"}
+{"time":"2025-01-04T15:38:17.77879+01:00","level":"INFO","msg":"stream: closed","id":"iz5u56ns"}

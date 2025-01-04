@@ -1,0 +1,20 @@
+{"time":"2025-01-04T15:49:52.007504+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T15:49:52.007546+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_154951-j40zpoku/logs/debug-core.log"}
+{"time":"2025-01-04T15:49:52.114273+01:00","level":"INFO","msg":"created new stream","id":"j40zpoku"}
+{"time":"2025-01-04T15:49:52.114314+01:00","level":"INFO","msg":"stream: started","id":"j40zpoku"}
+{"time":"2025-01-04T15:49:52.114333+01:00","level":"INFO","msg":"handler: started","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:49:52.114364+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:49:52.114334+01:00","level":"INFO","msg":"sender: started","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:49:52.374542+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T15:50:58.555398+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T15:50:58.556093+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T15:50:59.557166+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpi5wjn7g1/trained_model.pt","runtime_seconds":0.808840083,"progress":"2.3MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:51:59.68727+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpi5wjn7g1/trained_model.pt","runtime_seconds":60.939239125,"progress":"97.7MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:52:59.815894+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpi5wjn7g1/trained_model.pt","runtime_seconds":46.047653417,"progress":"79.3MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:53:59.956485+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpi5wjn7g1/trained_model.pt","runtime_seconds":106.188559458,"progress":"112.7MB/124.6MB"}],"total_operations":1}}
+{"time":"2025-01-04T15:54:13.12712+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T15:54:14.594745+01:00","level":"INFO","msg":"stream: closing","id":"j40zpoku"}
+{"time":"2025-01-04T15:54:14.594786+01:00","level":"INFO","msg":"handler: closed","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:54:14.594814+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:54:14.594835+01:00","level":"INFO","msg":"sender: closed","stream_id":"j40zpoku"}
+{"time":"2025-01-04T15:54:14.595062+01:00","level":"INFO","msg":"stream: closed","id":"j40zpoku"}

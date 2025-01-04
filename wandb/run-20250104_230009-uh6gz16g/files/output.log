@@ -1,0 +1,9 @@
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp0y6nmk3w.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 114, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 54, in __init__
+    self.loss_criteria = {'gaussian': self.get_loss(loss_name='gaussian')}
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 532, in get_loss
+    loss = loss.to(device=self.device)
+AttributeError: 'Runner' object has no attribute 'device'

@@ -1,0 +1,18 @@
+{"time":"2025-01-04T23:17:07.854304+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T23:17:07.854341+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_231707-8phwg8d3/logs/debug-core.log"}
+{"time":"2025-01-04T23:17:07.960639+01:00","level":"INFO","msg":"created new stream","id":"8phwg8d3"}
+{"time":"2025-01-04T23:17:07.960668+01:00","level":"INFO","msg":"stream: started","id":"8phwg8d3"}
+{"time":"2025-01-04T23:17:07.960681+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:17:07.960698+01:00","level":"INFO","msg":"sender: started","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:17:07.960722+01:00","level":"INFO","msg":"handler: started","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:17:08.247535+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T23:18:18.89609+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T23:18:18.896593+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T23:18:19.898079+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp5wn2mf7x/trained_model.pt","runtime_seconds":0.809365125,"progress":"1.6MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-04T23:19:20.025432+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp5wn2mf7x/trained_model.pt","runtime_seconds":7.400911125,"progress":"20.3MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-04T23:19:58.135773+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T23:19:59.772322+01:00","level":"INFO","msg":"stream: closing","id":"8phwg8d3"}
+{"time":"2025-01-04T23:19:59.772363+01:00","level":"INFO","msg":"handler: closed","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:19:59.772383+01:00","level":"INFO","msg":"sender: closed","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:19:59.772379+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"8phwg8d3"}
+{"time":"2025-01-04T23:19:59.772621+01:00","level":"INFO","msg":"stream: closed","id":"8phwg8d3"}

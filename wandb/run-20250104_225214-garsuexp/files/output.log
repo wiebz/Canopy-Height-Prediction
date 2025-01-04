@@ -1,0 +1,7 @@
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp9ihbs7cz.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 114, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 46, in __init__
+    if self.task == 'uncertainty':  # Gaussian Loss
+AttributeError: 'Runner' object has no attribute 'task'

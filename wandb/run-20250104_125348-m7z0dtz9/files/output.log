@@ -1,0 +1,7 @@
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpr7elbop9.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 108, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 62, in __init__
+    self.seed = int(self.config.seed)
+TypeError: int() argument must be a string, a bytes-like object or a number, not 'NoneType'

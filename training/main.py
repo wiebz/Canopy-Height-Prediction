@@ -13,6 +13,13 @@ import wandb
 from runner import Runner
 from utilities import GeneralUtility
 
+# Set logging levels for external libraries
+import logging
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+logging.getLogger('PIL').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('wandb').setLevel(logging.WARNING)
+
 warnings.filterwarnings('ignore')
 
 debug = "--debug" in sys.argv
@@ -20,6 +27,9 @@ debug = "--debug" in sys.argv
 defaults = dict(
     # System
     seed=1,
+
+    # Task
+    task='uncertainty', # 'quantile_regression'
 
     # Data
     dataset='/mock_dataset',#'ai4forest_debug',
@@ -32,8 +42,8 @@ defaults = dict(
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    loss_name='pinball',#'shift_huber','l2'  # Defaults to shift_l1
-    n_iterations=100,
+    loss_name='gaussian',#'shift_huber','l2','pinball'  # Defaults to shift_l1
+    n_iterations=10, #100
     log_freq=5,
     initial_lr=1e-3,
     weight_decay=1e-2,
@@ -46,11 +56,14 @@ defaults = dict(
     use_memmap=False,
     num_workers_per_gpu=8,   # Defaults to 8
 
+    # Mixup
+    use_mixup=False,
+    mixup_alpha=0.2,
+
     # Other
     use_weighted_sampler='g10',
     use_weighting_quantile=10,
     use_swa=False,
-    use_mixup=False,
     use_grad_clipping=False,
     use_input_clipping=False,   # Must be in [False, None, 1, 2, 5]
     n_lr_cycles=0,

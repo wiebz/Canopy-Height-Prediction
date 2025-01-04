@@ -1,0 +1,18 @@
+{"time":"2025-01-04T23:45:31.547526+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T23:45:31.547574+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_234531-vqncu5mp/logs/debug-core.log"}
+{"time":"2025-01-04T23:45:31.653893+01:00","level":"INFO","msg":"created new stream","id":"vqncu5mp"}
+{"time":"2025-01-04T23:45:31.65393+01:00","level":"INFO","msg":"stream: started","id":"vqncu5mp"}
+{"time":"2025-01-04T23:45:31.653942+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:45:31.653952+01:00","level":"INFO","msg":"sender: started","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:45:31.653961+01:00","level":"INFO","msg":"handler: started","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:45:31.912748+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T23:46:36.952035+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T23:46:36.95251+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T23:46:37.954833+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp_13djxhk/trained_model.pt","runtime_seconds":0.791867625,"progress":"752.0KB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-04T23:47:38.073523+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp_13djxhk/trained_model.pt","runtime_seconds":24.793471084,"progress":"89.2MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-04T23:47:47.274898+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T23:47:48.718123+01:00","level":"INFO","msg":"stream: closing","id":"vqncu5mp"}
+{"time":"2025-01-04T23:47:48.71817+01:00","level":"INFO","msg":"handler: closed","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:47:48.718191+01:00","level":"INFO","msg":"sender: closed","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:47:48.718185+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"vqncu5mp"}
+{"time":"2025-01-04T23:47:48.718361+01:00","level":"INFO","msg":"stream: closed","id":"vqncu5mp"}
