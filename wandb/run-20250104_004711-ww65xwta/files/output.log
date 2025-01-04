@@ -1,0 +1,13 @@
+Using loss: pinball.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpg00lixif.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpg00lixif.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 108, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 75, in __init__
+    self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber']}
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 75, in <dictcomp>
+    self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber']}
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 450, in get_loss
+    loss = PinballLoss(ignore_value=0, pre_calculation_function=remove_sub_track)
+TypeError: __init__() missing 1 required positional argument: 'taus'

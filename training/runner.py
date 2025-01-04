@@ -9,6 +9,7 @@ from typing import Optional, Any
 import numpy as np
 import segmentation_models_pytorch as smp
 import torch
+import torch.nn as nn
 import wandb
 from torch.cuda.amp import autocast
 from torch.utils.data import WeightedRandomSampler
@@ -71,7 +72,7 @@ class Runner:
 
         # Variables to be set
         self.loader = {loader_type: None for loader_type in ['train', 'val']}
-        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber']}
+        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber']}
         for threshold in [15, 20, 25, 30]:
             self.loss_criteria[f"l1_{threshold}"] = self.get_loss(loss_name=f"l1", threshold=threshold)
 
@@ -89,6 +90,7 @@ class Runner:
                                'shift_huber': MeanMetric().to(device=self.device),
                                'l1': MeanMetric().to(device=self.device),
                                'l2': MeanMetric().to(device=self.device),
+                               'pinball': MeanMetric().to(device=self.device),
                                'huber': MeanMetric().to(device=self.device),
                                }
                         for mode in ['train', 'val']}
@@ -154,6 +156,7 @@ class Runner:
         print(f"gefundener dataset Path: {rootPath}")
 
         # ab hier kann vermutlich alles weg
+        """
         is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
         is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
         sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")
@@ -199,7 +202,7 @@ class Runner:
                 if wait_it == 360:
                     # Waited 1 hour, this should be done by now, check for errors
                     raise Exception("Waiting time too long.")
-
+        """
         return rootPath
 
     def get_dataloaders(self):
@@ -310,7 +313,7 @@ class Runner:
                 "encoder_name": backbone,
                 "encoder_weights": None if not self.config.use_pretrained_model else 'imagenet',
                 "in_channels": 14,
-                "classes": 1,
+                "classes": 3,  # Changed output channels to 3 for quantile regression
             }
             if arch == 'unet':
                 model = smp.Unet(**network_config)
@@ -330,6 +333,60 @@ class Runner:
                 model = smp.DeepLabV3(**network_config)
             elif arch == 'deeplabv3p':
                 model = smp.DeepLabV3Plus(**network_config)
+
+            """
+            # Replace the segmentation head with a custom head if necessary
+            if hasattr(model, 'segmentation_head'):
+                model.segmentation_head = nn.Conv2d(
+                    in_channels=model.encoder.out_channels[-1],
+                    out_channels=3,  # Quantile regression outputs 3 channels
+                    kernel_size=1,
+                )
+            else:
+
+            # Alternatively, manually replace the last layer if segmentation_head is not available
+                model.add_module("quantile_head", nn.Conv2d(
+                    in_channels=model.decoder.out_channels[-1],
+                    out_channels=3,  # 3 quantiles
+                    kernel_size=1,
+                ))
+            """
+            # Debugging: Print encoder output channels
+            print(f"Encoder output channels: {model.encoder.out_channels}")
+
+            # Adjust Segmentation Head to handle channel mismatch
+            encoder_output_channels = model.encoder.out_channels[-1]  # Get encoder output channels
+            print(f"Adjusting SegmentationHead with encoder output channels: {encoder_output_channels}")
+
+            model.segmentation_head = smp.base.SegmentationHead(
+                in_channels=encoder_output_channels,  # Match encoder's output channels
+                out_channels=3,  # Quantiles: 0.1, 0.5, 0.9
+                activation=None,  # No activation; handled in the loss function
+                kernel_size=1  # Standard for segmentation heads
+            )
+
+            # Wrap the model with a custom forward method
+            class CustomForwardWrapper(torch.nn.Module):
+                def __init__(self, base_model):
+                    super().__init__()
+                    self.base_model = base_model
+
+                def forward(self, x):
+                    # Forward through the base model
+                    features = self.base_model.encoder(x)
+                    decoder_output = self.base_model.decoder(*features)
+                    # Ensure decoder output matches segmentation head input
+                    if decoder_output.shape[1] != encoder_output_channels:
+                        decoder_output = torch.nn.Conv2d(
+                            decoder_output.shape[1],
+                            encoder_output_channels,
+                            kernel_size=1
+                        )(decoder_output)
+                    return self.base_model.segmentation_head(decoder_output)
+
+            model = CustomForwardWrapper(model)
+
+            
         else:
             # The model has been initialized already
             model = self.model
@@ -363,7 +420,7 @@ class Runner:
         return model
 
     def get_loss(self, loss_name: str, threshold: float = None):
-        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber'], f"Loss {loss_name} not implemented."
+        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'pinball', 'huber'], f"Loss {loss_name} not implemented."
         if threshold is not None:
             assert loss_name == 'l1', f"Threshold only implemented for l1 loss, not {loss_name}."
         # Dim 1 is the channel dimension, 0 is batch.
@@ -388,6 +445,9 @@ class Runner:
         elif loss_name == 'l2':
             from losses.l2_loss import L2Loss
             loss = L2Loss(ignore_value=0, pre_calculation_function=remove_sub_track)
+        elif loss_name == 'pinball':
+            from losses.pinball_loss import PinballLoss
+            loss = PinballLoss(ignore_value=0, pre_calculation_function=remove_sub_track)
         elif loss_name == 'huber':
             from losses.huber_loss import HuberLoss
             loss = HuberLoss(ignore_value=0, pre_calculation_function=remove_sub_track, delta=3.0)

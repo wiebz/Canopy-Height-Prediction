@@ -1,0 +1,16 @@
+{"time":"2025-01-04T00:09:25.616454+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T00:09:25.61649+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_000925-m9vo52vw/logs/debug-core.log"}
+{"time":"2025-01-04T00:09:25.72492+01:00","level":"INFO","msg":"created new stream","id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:25.724996+01:00","level":"INFO","msg":"stream: started","id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:25.725012+01:00","level":"INFO","msg":"handler: started","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:25.725009+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:25.725032+01:00","level":"INFO","msg":"sender: started","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:25.98935+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T00:09:28.891262+01:00","level":"INFO","msg":"stream: closing","id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:28.891358+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T00:09:28.891989+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T00:09:29.602456+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T00:09:29.847498+01:00","level":"INFO","msg":"handler: closed","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:29.84753+01:00","level":"INFO","msg":"sender: closed","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:29.847522+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"m9vo52vw"}
+{"time":"2025-01-04T00:09:29.848214+01:00","level":"INFO","msg":"stream: closed","id":"m9vo52vw"}

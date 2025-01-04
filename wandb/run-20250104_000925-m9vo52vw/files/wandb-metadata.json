@@ -1,0 +1,46 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit",
+  "python": "CPython 3.9.6",
+  "startedAt": "2025-01-03T23:09:25.614945Z",
+  "args": [
+    "--debug"
+  ],
+  "program": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py",
+  "codePath": "training/main.py",
+  "git": {
+    "remote": "https://github.com/wiebz/Canopy-Height-Prediction",
+    "commit": "3fb379442bf706d7c3e6f7244dfe215c3bd3a8cb"
+  },
+  "email": "wiebke.zink@yahoo.de",
+  "root": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction",
+  "host": "Air-von-Wiebke.fritz.box",
+  "executable": "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/bin/python",
+  "codePathLocal": "training/main.py",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "245107195904",
+      "used": "167699984384"
+    },
+    "/System/Volumes/Data": {
+      "total": "245107195904",
+      "used": "167699984384"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "cpu": {
+    "count": 8,
+    "countLogical": 8
+  },
+  "apple": {
+    "name": "Apple M2",
+    "ecpuCores": 4,
+    "pcpuCores": 4,
+    "gpuCores": 8,
+    "memoryGb": 16,
+    "ramTotalBytes": "17179869184"
+  }
+}

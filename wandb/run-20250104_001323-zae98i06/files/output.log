@@ -1,0 +1,28 @@
+Using loss: pinball.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpuxm7ener.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset
+Loading /mock_dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset.
+Computed weighting 10.0-quantile-lower bound: 0.09523809523809523.
+Length of train and val splits: 5, 2.
+New length of train and val splits: 5, 2.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+Encoder output channels: (14, 64, 256, 512, 1024, 2048)
+Adjusting SegmentationHead with encoder output channels: 2048
+  0%|                                                                                                                   | 0/100 [00:02<?, ?it/s]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpuxm7ener.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 109, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 759, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 695, in train
+    loss = self.loss_criteria[self.loss_name](output, y_target)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/losses/pinball_loss.py", line 53, in forward
+    out = out[:, :, mask]
+IndexError: too many indices for tensor of dimension 3

@@ -1,0 +1,19 @@
+Using loss: pinball.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp565a2tqd.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset
+Loading /mock_dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/mock_dataset.
+Computed weighting 10.0-quantile-lower bound: 0.09523809523809523.
+Length of train and val splits: 5, 2.
+New length of train and val splits: 5, 2.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp565a2tqd.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 109, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 730, in run
+    self.model = self.get_model(reinit=True, model_path=self.model_paths['initial'])  # Load the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 363, in get_model
+    print(f"Segmentation head input channels: {in_channels}")
+NameError: name 'in_channels' is not defined

@@ -1,0 +1,16 @@
+{"time":"2025-01-04T00:02:06.390005+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-04T00:02:06.390043+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250104_000206-igc85s49/logs/debug-core.log"}
+{"time":"2025-01-04T00:02:06.501074+01:00","level":"INFO","msg":"created new stream","id":"igc85s49"}
+{"time":"2025-01-04T00:02:06.501113+01:00","level":"INFO","msg":"stream: started","id":"igc85s49"}
+{"time":"2025-01-04T00:02:06.501323+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:06.501401+01:00","level":"INFO","msg":"handler: started","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:06.501402+01:00","level":"INFO","msg":"sender: started","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:06.798228+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-04T00:02:07.260128+01:00","level":"INFO","msg":"stream: closing","id":"igc85s49"}
+{"time":"2025-01-04T00:02:07.260859+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-04T00:02:07.26157+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-04T00:02:07.927214+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-04T00:02:08.171522+01:00","level":"INFO","msg":"handler: closed","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:08.171563+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:08.171719+01:00","level":"INFO","msg":"sender: closed","stream_id":"igc85s49"}
+{"time":"2025-01-04T00:02:08.17214+01:00","level":"INFO","msg":"stream: closed","id":"igc85s49"}

@@ -32,7 +32,7 @@ defaults = dict(
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    loss_name='l2',#'shift_huber',  # Defaults to shift_l1
+    loss_name='pinball',#'shift_huber','l2'  # Defaults to shift_l1
     n_iterations=100,
     log_freq=5,
     initial_lr=1e-3,
