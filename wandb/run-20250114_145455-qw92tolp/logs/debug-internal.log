@@ -1,0 +1,18 @@
+{"time":"2025-01-14T14:54:55.479574+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-14T14:54:55.479612+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250114_145455-qw92tolp/logs/debug-core.log"}
+{"time":"2025-01-14T14:54:55.586024+01:00","level":"INFO","msg":"created new stream","id":"qw92tolp"}
+{"time":"2025-01-14T14:54:55.586056+01:00","level":"INFO","msg":"stream: started","id":"qw92tolp"}
+{"time":"2025-01-14T14:54:55.586076+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:54:55.586087+01:00","level":"INFO","msg":"sender: started","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:54:55.586115+01:00","level":"INFO","msg":"handler: started","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:54:55.997078+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-14T14:55:39.679979+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-14T14:55:39.680843+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-14T14:55:40.681531+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7vs6nhml/trained_model.pt","runtime_seconds":0.806952292,"progress":"2.5MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-14T14:56:40.808116+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmp7vs6nhml/trained_model.pt","runtime_seconds":28.32478225,"progress":"124.5MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-14T14:56:41.077848+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-14T14:56:42.508859+01:00","level":"INFO","msg":"stream: closing","id":"qw92tolp"}
+{"time":"2025-01-14T14:56:42.508901+01:00","level":"INFO","msg":"handler: closed","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:56:42.508923+01:00","level":"INFO","msg":"sender: closed","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:56:42.508917+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"qw92tolp"}
+{"time":"2025-01-14T14:56:42.509138+01:00","level":"INFO","msg":"stream: closed","id":"qw92tolp"}
