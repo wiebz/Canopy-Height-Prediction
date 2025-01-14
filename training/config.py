@@ -8,6 +8,7 @@ import pdb
 from torch.utils.data.dataloader import default_collate
 import sys
 
+""" original values
 means = {
     'ai4forest_camera': (10782.3223,  3304.7444,  1999.6086,  7276.4209,  1186.4460,  1884.6165,
          2645.6113,  3128.2588,  3806.2808,  4134.6855,  4113.4883,  4259.1885,
@@ -30,15 +31,44 @@ percentiles = {
         99: (27044.0, 27349.0, 24868.0, 23266.0, 15970.0, 15680.0, 15548.0, 15494.0, 15432.0, 15368.0, 15385.0, 15219.0, 13590.0, 14657.0),
     }  # Not the true values, change for your dataset
 }
+"""
+means = {
+    'ai4forest_camera': (5889.6939, 5748.9167, 3715.2948, 3272.4427, 289.1116, 363.2289, 350.8745, 
+                         580.831, 1181.8722, 1422.2575, 1463.7904, 1562.2179, 997.0867, 628.6888),
+}
+
+stds = {
+    'ai4forest_camera': (6556.6953, 6061.1713, 3969.6927, 3761.6764, 215.2998, 337.9303, 527.2561, 
+                         648.6154, 1181.245, 1448.4027, 1510.257, 1603.0403, 1123.2454, 864.0444),
+}
+
+percentiles = {
+    'ai4forest_camera': {
+        1: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        2: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        5: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        95: (15735.0, 14517.0, 9731.0, 9189.0, 655.0, 1061.0, 1776.0, 2058.0, 2941.0, 3701.0, 3840.0, 4072.0, 3426.0, 2953.0,),
+        98: (16451.0, 14728.0, 10112.0, 10053.0, 804.0, 1224.0, 2077.0, 2369.0, 3224.0, 4098.0, 4248.0, 4491.0, 3948.0, 3411.0,),
+        99: (17126.0, 14864.0, 10374.0, 10601.0, 961.0, 1333.0, 2236.0, 2533.0, 3426.0, 4394.0, 4538.0, 4808.0, 4141.0, 3602.0,),
+    }
+}
+
 
 class FixValDataset(Dataset):
     """
     Dataset class to load the fixval dataset.
     """
+    """
     def __init__(self, data_path, dataframe, image_transforms=None):
         self.data_path = data_path
         self.df = pd.read_csv(dataframe, index_col=False)
         self.files = list(self.df["paths"].apply(lambda x: os.path.join(data_path, x)))
+        self.image_transforms = image_transforms"""
+
+    def __init__(self, data_path, dataframe, image_transforms=None):
+        self.data_path = data_path
+        self.df = pd.read_csv(dataframe, index_col=False)
+        self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, x)))
         self.image_transforms = image_transforms
 
     def __len__(self):
@@ -77,8 +107,9 @@ class PreprocessedSatelliteDataset(Dataset):
             df = df[df["has_corrupt_s2_channel_flag"] == False]
             sys.stdout.write(f"Removed {old_len - len(df)} corrupt rows.\n")
 
-        self.files = list(df["paths"].apply(lambda x: os.path.join(data_path, x)))
-
+        #self.files = list(df["paths"].apply(lambda x: os.path.join(data_path, x)))
+        self.files = list(df["path"].apply(lambda x: os.path.join(data_path, x)))
+        
         if use_weighted_sampler not in [False, None]:
             assert use_weighted_sampler in ['g5', 'g10', 'g15', 'g20', 'g25', 'g30']
             weighting_quantile = use_weighting_quantile

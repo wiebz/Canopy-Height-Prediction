@@ -503,6 +503,7 @@ class Runner:
 
         # Dim 1 is the channel dimension, 0 is batch.
         # Sums up to get average height, could be mean without zeros
+        # damit target nicht 3 sondern 1 channel hat
         remove_sub_track = lambda out, target: (out, torch.sum(target, dim=1))
 
         """if loss_name == 'shift_l1':
@@ -745,18 +746,7 @@ class Runner:
                     'val/variance_prediction': log_variance.exp().mean().item()
                 }, commit=False)
 
-            """
-            with autocast(enabled=self.use_amp):
-                output = self.model.eval()(x_input)
-                loss = self.loss_criteria[self.loss_name](output, y_target)
-                self.metrics[data]['loss'](value=loss, weight=len(y_target))
-                for loss_type in self.loss_criteria.keys():
-                    metric_loss = self.loss_criteria[loss_type](output, y_target)
-                    # Check if the metric_loss is nan
-                    if not torch.isnan(metric_loss):
-                        self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
-            """
-
+            
             # Metriken berechnen
             self.metrics[data]['loss'](value=loss, weight=len(y_target))
             for loss_type in self.loss_criteria.keys():

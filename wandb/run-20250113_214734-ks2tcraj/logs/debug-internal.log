@@ -1,0 +1,16 @@
+{"time":"2025-01-13T21:47:34.118959+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-13T21:47:34.119022+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250113_214734-ks2tcraj/logs/debug-core.log"}
+{"time":"2025-01-13T21:47:34.22669+01:00","level":"INFO","msg":"created new stream","id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.226729+01:00","level":"INFO","msg":"stream: started","id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.226779+01:00","level":"INFO","msg":"handler: started","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.226773+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.22683+01:00","level":"INFO","msg":"sender: started","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.487143+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-13T21:47:34.537012+01:00","level":"INFO","msg":"stream: closing","id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:34.53704+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-13T21:47:34.537361+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-13T21:47:35.596666+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-13T21:47:35.879095+01:00","level":"INFO","msg":"handler: closed","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:35.879157+01:00","level":"INFO","msg":"sender: closed","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:35.879131+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"ks2tcraj"}
+{"time":"2025-01-13T21:47:35.879532+01:00","level":"INFO","msg":"stream: closed","id":"ks2tcraj"}

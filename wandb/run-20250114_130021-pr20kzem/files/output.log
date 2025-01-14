@@ -1,0 +1,24 @@
+INFO:runner:Using loss: gaussian.
+INFO:runner:Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp52viioz6.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+INFO:runner:Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Computed weighting 10.0-quantile-lower bound: nan.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp52viioz6.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 122, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 981, in run
+    loaders = self.get_dataloaders()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 265, in get_dataloaders
+    fixvalData = FixValDataset(data_path=data_path, dataframe=fix_val_dataframe,
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/config.py", line 70, in __init__
+    self.df = pd.read_csv(dataframe, index_col=True)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/pandas/io/parsers/readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/pandas/io/parsers/readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/pandas/io/parsers/readers.py", line 1614, in __init__
+    self.options, self.engine = self._clean_options(options, engine)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/pandas/io/parsers/readers.py", line 1790, in _clean_options
+    raise ValueError("The value of index_col couldn't be 'True'")
+ValueError: The value of index_col couldn't be 'True'

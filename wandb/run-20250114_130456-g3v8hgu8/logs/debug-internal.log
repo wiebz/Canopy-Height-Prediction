@@ -1,0 +1,18 @@
+{"time":"2025-01-14T13:04:56.852104+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-14T13:04:56.852135+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250114_130456-g3v8hgu8/logs/debug-core.log"}
+{"time":"2025-01-14T13:04:56.96128+01:00","level":"INFO","msg":"created new stream","id":"g3v8hgu8"}
+{"time":"2025-01-14T13:04:56.961325+01:00","level":"INFO","msg":"stream: started","id":"g3v8hgu8"}
+{"time":"2025-01-14T13:04:56.961507+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:04:56.961561+01:00","level":"INFO","msg":"sender: started","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:04:56.96156+01:00","level":"INFO","msg":"handler: started","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:04:57.230198+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-14T13:12:45.85776+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-14T13:12:45.862286+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-14T13:12:46.858567+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpk_mtb37b/trained_model.pt","runtime_seconds":0.435276125,"progress":"1.2MB/124.5MB"},{"desc":"uploading config.yaml","runtime_seconds":0.251650291,"progress":"1.5KB/1.5KB"},{"desc":"uploading output.log","runtime_seconds":0.251624375,"progress":"8.6KB/8.6KB"}],"total_operations":3}}
+{"time":"2025-01-14T13:13:47.012966+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpk_mtb37b/trained_model.pt","runtime_seconds":28.9807275,"progress":"123.8MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-14T13:13:47.542269+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-14T13:13:51.314151+01:00","level":"INFO","msg":"stream: closing","id":"g3v8hgu8"}
+{"time":"2025-01-14T13:13:51.314198+01:00","level":"INFO","msg":"handler: closed","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:13:51.31421+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:13:51.314223+01:00","level":"INFO","msg":"sender: closed","stream_id":"g3v8hgu8"}
+{"time":"2025-01-14T13:13:51.314306+01:00","level":"INFO","msg":"stream: closed","id":"g3v8hgu8"}

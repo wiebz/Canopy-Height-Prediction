@@ -1,0 +1,36 @@
+INFO:runner:Using loss: gaussian.
+INFO:runner:Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpk0tpj94t.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+INFO:runner:Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Computed weighting 10.0-quantile-lower bound: nan.
+Length of train and val splits: 3, 3.
+WARNING:runner:Validation dataset is large, reducing to a maximum of 3000 samples.
+Using 0 workers.
+INFO:runner:Loading model - reinit: True | path: None specified.
+INFO:runner:Using architecture unet.
+DEBUG:runner:Debugging: Encoder output channels: (14, 64, 256, 512, 1024, 2048).
+WARNING:runner:AMP is disabled. Autocast will not be used.
+INFO:runner:Starting single model training.
+Training Progress:   0%|                                                                                                           | 0/10 [00:00<?, ?it/s]DEBUG:runner:Starting iteration 1/10.
+Training Progress:   0%|                                                                                                           | 0/10 [00:00<?, ?it/s]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpk0tpj94t.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 122, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 987, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 842, in train
+    self.train_single_model()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 882, in train_single_model
+    x_input, y_target = next(train_iterator)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 701, in __next__
+    data = self._next_data()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 756, in _next_data
+    index = self._next_index()  # may raise StopIteration
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 691, in _next_index
+    return next(self._sampler_iter)  # may raise StopIteration
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/utils/data/sampler.py", line 347, in __iter__
+    for idx in self.sampler:
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/utils/data/sampler.py", line 284, in __iter__
+    rand_tensor = torch.multinomial(
+RuntimeError: invalid multinomial distribution (sum of probabilities <= 0)

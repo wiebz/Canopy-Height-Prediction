@@ -1,0 +1,7 @@
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpav_4wuf8.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 121, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 50, in __init__
+    raise ValueError(f"Invalid task '{self.task}'. Expected one of {valid_tasks}.")
+ValueError: Invalid task 'None'. Expected one of ['baseline', 'quantile_regression', 'uncertainty', 'ensemble'].

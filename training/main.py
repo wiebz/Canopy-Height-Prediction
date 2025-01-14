@@ -29,10 +29,11 @@ defaults = dict(
     seed=1,
 
     # Task
-    task='uncertainty', # 'quantile_regression'
+    task='quantile_regression', # 'uncertainty'
+    quantiles = [0.1, 0.5, 0.9],
 
     # Data
-    dataset='/mock_dataset',#'ai4forest_debug',
+    dataset='/dataset',#'ai4forest_debug',/mock_dataset'
     batch_size=5,
 
     # Architecture
@@ -42,8 +43,8 @@ defaults = dict(
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    loss_name='gaussian',#'shift_huber','l2','pinball'  # Defaults to shift_l1
-    n_iterations=10, #100
+    loss_name='pinball', #'shift_huber','l2', 'gaussian' # Defaults to shift_l1
+    n_iterations=5, #100
     log_freq=5,
     initial_lr=1e-3,
     weight_decay=1e-2,

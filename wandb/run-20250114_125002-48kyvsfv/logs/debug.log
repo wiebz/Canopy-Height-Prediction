@@ -1,0 +1,24 @@
+2025-01-14 12:50:02,988 INFO    MainThread:16489 [wandb_setup.py:_flush():68] Current SDK version is 0.19.1
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_setup.py:_flush():68] Configure stats pid to 16489
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_setup.py:_flush():68] Loading settings from /Users/wiebkezink/.config/wandb/settings
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_setup.py:_flush():68] Loading settings from /Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/settings
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_setup.py:_flush():68] Loading settings from environment variables
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_init.py:_log_setup():528] Logging user logs to /Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250114_125002-48kyvsfv/logs/debug.log
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_init.py:_log_setup():529] Logging internal logs to /Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250114_125002-48kyvsfv/logs/debug-internal.log
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_init.py:init():644] calling init triggers
+2025-01-14 12:50:02,989 INFO    MainThread:16489 [wandb_init.py:init():650] wandb.init called with sweep_config: {}
+config: {'seed': 1, 'task': 'uncertainty', 'dataset': '/dataset', 'batch_size': 5, 'arch': 'unet', 'backbone': 'resnet50', 'use_pretrained_model': False, 'optim': 'AdamW', 'loss_name': 'gaussian', 'n_iterations': 10, 'log_freq': 5, 'initial_lr': 0.001, 'weight_decay': 0.01, 'use_standardization': False, 'use_augmentation': False, 'use_label_rescaling': False, 'fp16': False, 'use_memmap': False, 'num_workers_per_gpu': 8, 'use_mixup': False, 'mixup_alpha': 0.2, 'use_weighted_sampler': 'g10', 'use_weighting_quantile': 10, 'use_swa': False, 'use_grad_clipping': False, 'use_input_clipping': False, 'n_lr_cycles': 0, 'cyclic_mode': 'triangular2', 'computer': 'Air-von-Wiebke.fritz.box'}
+2025-01-14 12:50:02,990 INFO    MainThread:16489 [wandb_init.py:init():680] starting backend
+2025-01-14 12:50:02,990 INFO    MainThread:16489 [wandb_init.py:init():684] sending inform_init request
+2025-01-14 12:50:03,026 INFO    MainThread:16489 [backend.py:_multiprocessing_setup():104] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2025-01-14 12:50:03,027 INFO    MainThread:16489 [wandb_init.py:init():697] backend started and connected
+2025-01-14 12:50:03,032 INFO    MainThread:16489 [wandb_init.py:init():790] updated telemetry
+2025-01-14 12:50:03,056 INFO    MainThread:16489 [wandb_init.py:init():822] communicating run to backend with 90.0 second timeout
+2025-01-14 12:50:03,429 INFO    MainThread:16489 [wandb_init.py:init():874] starting run threads in backend
+2025-01-14 12:50:03,479 INFO    MainThread:16489 [wandb_run.py:_console_start():2374] atexit reg
+2025-01-14 12:50:03,479 INFO    MainThread:16489 [wandb_run.py:_redirect():2224] redirect: wrap_raw
+2025-01-14 12:50:03,480 INFO    MainThread:16489 [wandb_run.py:_redirect():2289] Wrapping output streams.
+2025-01-14 12:50:03,480 INFO    MainThread:16489 [wandb_run.py:_redirect():2314] Redirects installed.
+2025-01-14 12:50:03,482 INFO    MainThread:16489 [wandb_init.py:init():916] run started, returning control to user process
+2025-01-14 12:50:03,482 INFO    MainThread:16489 [wandb_run.py:_config_callback():1279] config_cb None None {'device': 'cpu'}
+2025-01-14 12:50:03,547 WARNING MsgRouterThr:16489 [router.py:message_loop():75] message_loop has been closed

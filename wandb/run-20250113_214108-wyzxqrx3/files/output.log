@@ -1,0 +1,13 @@
+INFO:runner:Using loss: gaussian.
+INFO:runner:Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp37r9hfox.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+INFO:runner:Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp37r9hfox.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 122, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 981, in run
+    loaders = self.get_dataloaders()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 217, in get_dataloaders
+    assert os.path.exists(fix_val_dataframe), f"Fix validation dataframe {fix_val_dataframe} not found."
+AssertionError: Fix validation dataframe /Users/wiebkezink/Documents/Uni Münster/MA/dataset/fix_val.csv not found.

@@ -1,0 +1,18 @@
+{"time":"2025-01-13T21:41:30.135279+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-13T21:41:30.135322+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250113_214130-jag4cirw/logs/debug-core.log"}
+{"time":"2025-01-13T21:41:30.244888+01:00","level":"INFO","msg":"created new stream","id":"jag4cirw"}
+{"time":"2025-01-13T21:41:30.24493+01:00","level":"INFO","msg":"stream: started","id":"jag4cirw"}
+{"time":"2025-01-13T21:41:30.244993+01:00","level":"INFO","msg":"handler: started","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:41:30.245291+01:00","level":"INFO","msg":"sender: started","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:41:30.24529+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:41:30.518122+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-13T21:44:23.357195+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-13T21:44:23.364018+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-13T21:44:24.362443+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpcf5renh7/trained_model.pt","runtime_seconds":0.655014958,"progress":"1.6MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-13T21:45:24.491888+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpcf5renh7/trained_model.pt","runtime_seconds":20.167731041,"progress":"75.4MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-13T21:45:37.812241+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-13T21:45:39.349796+01:00","level":"INFO","msg":"stream: closing","id":"jag4cirw"}
+{"time":"2025-01-13T21:45:39.349837+01:00","level":"INFO","msg":"handler: closed","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:45:39.349859+01:00","level":"INFO","msg":"sender: closed","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:45:39.349851+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"jag4cirw"}
+{"time":"2025-01-13T21:45:39.350121+01:00","level":"INFO","msg":"stream: closed","id":"jag4cirw"}

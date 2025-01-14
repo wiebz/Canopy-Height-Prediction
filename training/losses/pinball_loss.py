@@ -7,8 +7,8 @@ class PinballLoss(nn.Module):
 
     def __init__(
         self,
-        taus = [0.1, 0.5, 0.9],
-        # quantiles=[0.1, 0.5, 0.9],  # Default quantiles
+        # taus = [0.1, 0.5, 0.9],
+        quantiles=[0.1, 0.5, 0.9],  # Default quantiles
         ignore_value=None,
         pre_calculation_function=None,
     ):
@@ -19,8 +19,8 @@ class PinballLoss(nn.Module):
         :param pre_calculation_function: Optional function to preprocess inputs
         """
         super().__init__()
-        self.taus = taus
-        # self.quantiles = quantiles
+        # self.taus = taus
+        self.quantiles = quantiles
         self.ignore_value = ignore_value
         self.pre_calculation_function = pre_calculation_function
 
@@ -37,10 +37,13 @@ class PinballLoss(nn.Module):
         # Check the number of dimensions in the `out` tensor
         if len(out.shape) == 4:
             # If 4D, collapse height and width into a single dimension
+            print(f"out: {out.shape}, target: {target.shape}")
             batch_size, num_quantiles, height, width = out.shape
             spatial_dim = height * width
             out = out.view(batch_size, num_quantiles, spatial_dim)  # Flatten height and width
             target = target.view(batch_size, spatial_dim)  # Match target shape
+            target2 = target.view(batch_size, -1)
+            print(f"out: {out.shape}, target: {target.shape}, target2: {target2.shape}")
         elif len(out.shape) == 3:
             # Already in the expected shape
             batch_size, num_quantiles, spatial_dim = out.shape
@@ -77,11 +80,11 @@ class PinballLoss(nn.Module):
         #loss = torch.zeros(num_quantiles, device=out.device)
         loss = []
 
-        for i, tau in enumerate(self.taus):
+        for i, quantile in enumerate(self.quantiles):
             diff = target - out[:, i]  # [filtered_elements]
-            tau_loss = torch.max(tau * diff, (tau - 1) * diff)  # Pinball loss
+            quantile_loss = torch.max(quantile * diff, (quantile - 1) * diff)  # Pinball loss
             #loss[i] = torch.mean(torch.max(tau * diff, (tau - 1) * diff))
-            loss.append(tau_loss.mean())
+            loss.append(quantile_loss.mean())
 
         return torch.stack(loss).mean() # loss.mean()
 
