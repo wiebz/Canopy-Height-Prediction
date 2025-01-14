@@ -22,7 +22,7 @@ defaults = dict(
     seed=1,
 
     # Data
-    dataset='/mock_dataset',#'ai4forest_debug',
+    dataset='/dataset',#'ai4forest_debug',
     batch_size=5,
 
     # Architecture
