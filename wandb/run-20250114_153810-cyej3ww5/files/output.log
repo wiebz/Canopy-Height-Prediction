@@ -1,0 +1,28 @@
+Using loss: l2.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp5gqlvhl2.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Computed weighting 10.0-quantile-lower bound: 0.6454545454545455.
+Length of train and val splits: 5, 3.
+New length of train and val splits: 5, 3.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+INFO:runner:Training model 1/5 in the ensemble.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+WARNING:runner:AMP is disabled. Autocast will not be used.
+INFO:runner:Starting single model training.
+Training Progress:   0%|                                                                                                            | 0/5 [00:00<?, ?it/s]DEBUG:runner:Starting iteration 1/5.
+Training Progress:   0%|                                                                                                            | 0/5 [00:00<?, ?it/s]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmp5gqlvhl2.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 109, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 862, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 722, in train
+    self.train_single_model()  # Trainiere ein Modell
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 760, in train_single_model
+    x_input, y_target = self.apply_mixup(x_input, y_target)
+AttributeError: 'Runner' object has no attribute 'apply_mixup'

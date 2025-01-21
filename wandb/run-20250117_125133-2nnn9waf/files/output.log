@@ -1,0 +1,58 @@
+Using loss: l2.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpqophr5pa.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Computed 10-quantile lower bound: 71.0.
+Length of train and val splits: 5, 3.
+New length of train and val splits: 5, 3.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+INFO:runner:Model path 'initial': None
+INFO:runner:Training model 1/3 in the ensemble.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+WARNING:runner:AMP is disabled. Autocast will not be used.
+INFO:runner:Starting single model training.
+Training Progress:   0%|                                                                                                                        | 0/5 [00:00<?, ?it/s]DEBUG:runner:Starting iteration 1/5.
+DEBUG:runner:Backpropagation completed for iteration 1.
+DEBUG:runner:Iteration 1: Throughput = 0.56 images/sec.
+Training Progress:  20%|██████████████████████▍                                                                                         | 1/5 [00:09<00:36,  9.06s/it]DEBUG:runner:Starting iteration 2/5.
+DEBUG:runner:Backpropagation completed for iteration 2.
+DEBUG:runner:Iteration 2: Throughput = 0.56 images/sec.
+Training Progress:  40%|████████████████████████████████████████████▊                                                                   | 2/5 [00:18<00:27,  9.07s/it]DEBUG:runner:Starting iteration 3/5.
+DEBUG:runner:Backpropagation completed for iteration 3.
+DEBUG:runner:Iteration 3: Throughput = 0.55 images/sec.
+Training Progress:  60%|███████████████████████████████████████████████████████████████████▏                                            | 3/5 [00:27<00:18,  9.14s/it]DEBUG:runner:Starting iteration 4/5.
+DEBUG:runner:Backpropagation completed for iteration 4.
+DEBUG:runner:Iteration 4: Throughput = 0.57 images/sec.
+Training Progress:  80%|█████████████████████████████████████████████████████████████████████████████████████████▌                      | 4/5 [00:36<00:09,  9.06s/it]DEBUG:runner:Starting iteration 5/5.
+DEBUG:runner:Backpropagation completed for iteration 5.
+DEBUG:runner:Iteration 5: Throughput = 0.60 images/sec.
+INFO:runner:Iteration 5: Summary after 44.68s.
+INFO:runner:Metric 'loss': 285.1119
+INFO:runner:Metric 'l1': 9.5455
+INFO:runner:Metric 'l2': 285.1119
+INFO:runner:Metric 'l1_15': 36.7454
+INFO:runner:Metric 'l1_20': 36.7454
+INFO:runner:Metric 'l1_25': 37.1382
+INFO:runner:Metric 'l1_30': 37.9739
+INFO:runner:Metric 'ips_throughput': 0.5664
+Training Progress: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [00:46<00:00,  9.21s/it]
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpqophr5pa.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 119, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 886, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 746, in train
+    model_path = self.save_model(f'ensemble_model_{i}', sync=False)  # Speichere das Modell
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 509, in save_model
+    torch.save(model_state_dict, mPath)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/serialization.py", line 849, in save
+    with _open_zipfile_writer(f) as opened_zipfile:
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/serialization.py", line 716, in _open_zipfile_writer
+    return container(name_or_buffer)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/venv/lib/python3.9/site-packages/torch/serialization.py", line 687, in __init__
+    super().__init__(torch._C.PyTorchFileWriter(self.name))
+RuntimeError: Parent directory /models does not exist.

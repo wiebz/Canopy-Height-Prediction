@@ -6,8 +6,8 @@ import numpy as np
 from tqdm.auto import tqdm
 import sys
 # Assuming PreprocessedSatelliteDataset is defined in your project
-from config import PreprocessedSatelliteDataset
-from runner import Runner
+from training.config import PreprocessedSatelliteDataset
+from training.runner import Runner
 
 def update_extremes(values, extremes, num_extremes, largest=True):
     """
@@ -19,7 +19,10 @@ def update_extremes(values, extremes, num_extremes, largest=True):
 
 def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4):
     # Set up dataset and DataLoader
-    rootPath = Runner.get_dataset_root(dataset_name=dataset_name)
+    #rootPath = Runner.get_dataset_root(dataset_name=dataset_name)
+    rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
+    print(f"Resolved dataset path: {rootPath}") # Debugging
+
     dataframe = os.path.join(rootPath, f'{split}.csv')
 
     train_transforms = transforms.Compose([
@@ -43,6 +46,8 @@ def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4)
     with torch.no_grad():
         for data, _ in tqdm(dataloader):
             data = data.to(device=device, non_blocking=True)
+            print(f"Batch data shape: {data.shape}")
+
             # Switch the channel dimension to the first dimension, currently its at dim 1
             data = data.permute(1, 0, 2, 3)
             # Flatten the data
@@ -65,24 +70,43 @@ def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4)
     # Compute final percentile values
     percentile_values = {channel: {} for channel in range(num_channels)}
     for channel in range(num_channels):
+        current_extremes = extremes[channel][percentile]
+        if current_extremes.numel() == 0:
+            print(f"Warning: No data for channel {channel}, percentile {percentile}.")
+            percentile_values[channel][percentile] = None  # Assign a default or `None`
+        else:
+            if percentile > 50:
+                percentile_values[channel][percentile] = current_extremes.min().item()
+            else:
+                percentile_values[channel][percentile] = current_extremes.max().item()
+        """
         for percentile in percentiles:
             if percentile > 50:
                 percentile_values[channel][percentile] = extremes[channel][percentile].min().item()
             else:
                 percentile_values[channel][percentile] = extremes[channel][percentile].max().item()
+        """
 
     # Save results
     dump_path = os.path.join(os.getcwd(), f'{dataset_name}_{split}_percentiles.txt')
     with open(dump_path, 'w') as f:
         for percentile in percentiles:
+            try:
+                percentile_values_for_all_channels = tuple(percentile_values[channel][percentile] for channel in percentile_values)
+                f.write(f'{percentile}: {percentile_values_for_all_channels},\n')
+            except KeyError:
+                print(f"Error: Missing data for percentile {percentile}.")
+                continue
+            """
             percentile_values_for_all_channels = tuple(percentile_values[channel][percentile] for channel in percentile_values)
             f.write(f'{percentile}: {percentile_values_for_all_channels},\n')
+            """
 
 
     return percentile_values
 
 # Usage example
 percentiles = [1, 2, 5, 95, 98, 99]
-dataset_name = 'ai4forest_camera'
+dataset_name = 'dataset'#'ai4forest_camera'
 split = 'train'
 percentile_values = compute_percentiles(dataset_name, split, percentiles)
