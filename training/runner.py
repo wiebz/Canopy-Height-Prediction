@@ -16,14 +16,14 @@ from torchmetrics import MeanMetric
 from torchvision.transforms import transforms
 from tqdm.auto import tqdm
 
-from . import visualization
-from .config import PreprocessedSatelliteDataset, FixValDataset
-from .config import means as meanDict
-from .config import percentiles as percentileDict
-from .config import stds as stdDict
-from .metrics import MetricsClass
-from .utilities import JointRandomRotationTransform
-from .utilities import SequentialSchedulers
+from training import visualization
+from training.config import PreprocessedSatelliteDataset, FixValDataset
+from training.config import means as meanDict
+from training.config import percentiles as percentileDict
+from training.config import stds as stdDict
+from training.metrics import MetricsClass
+from training.utilities import JointRandomRotationTransform
+from training.utilities import SequentialSchedulers
 
 import logging
 from argparse import Namespace
@@ -32,7 +32,8 @@ from argparse import Namespace
 class Runner:
     """Base class for all runners, defines the general functions"""
 
-    def __init__(self, config: Namespace, tmp_dir: str, debug: bool):
+    #def __init__(self, config: Namespace, tmp_dir: str, debug: bool):
+    def __init__(self, config: Any, tmp_dir: str, debug: bool):
         """
         Initialize useful variables using config.
         :param config: wandb run config
@@ -41,8 +42,8 @@ class Runner:
         :type debug: bool
         """
 
-        if not isinstance(config, Namespace):
-            raise TypeError("config must be a Namespace")
+        #if not isinstance(config, Namespace):
+        #    raise TypeError("config must be a Namespace")
         
         self.config = config
         self.debug = debug
@@ -96,7 +97,7 @@ class Runner:
 
         # Set a couple useful variables
         #self.seed = int(self.config.seed)
-        int(getattr(self.config, 'seed', 42))
+        self.seed = int(getattr(self.config, 'seed', 42))
         self.loss_name = self.config.loss_name or 'shift_l1'
         sys.stdout.write(f"Using loss: {self.loss_name}.\n")
         self.use_amp = self.config.fp16

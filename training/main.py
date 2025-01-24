@@ -10,8 +10,8 @@ from contextlib import contextmanager
 
 import wandb
 
-from runner import Runner
-from utilities import GeneralUtility
+from training.runner import Runner
+from training.utilities import GeneralUtility
 
 # Set logging levels for external libraries
 import logging
@@ -36,9 +36,9 @@ os.makedirs(model_save_dir, exist_ok=True)
 
 
 defaults = dict(
-    # Add model_save_dir to config
+    # Model save directory
     model_save_dir=model_save_dir,
-    
+
     # System
     seed=1,
 

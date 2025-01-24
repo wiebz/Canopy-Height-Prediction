@@ -1,0 +1,16 @@
+{"time":"2025-01-21T12:28:13.953906+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-21T12:28:13.953948+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250121_122813-tfvbvamb/logs/debug-core.log"}
+{"time":"2025-01-21T12:28:14.165676+01:00","level":"INFO","msg":"created new stream","id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.165716+01:00","level":"INFO","msg":"stream: started","id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.165756+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.165826+01:00","level":"INFO","msg":"handler: started","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.165825+01:00","level":"INFO","msg":"sender: started","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.464148+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-21T12:28:14.526212+01:00","level":"INFO","msg":"stream: closing","id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:14.526269+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-21T12:28:14.526634+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-21T12:28:15.951831+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-21T12:28:16.18597+01:00","level":"INFO","msg":"handler: closed","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:16.185998+01:00","level":"INFO","msg":"sender: closed","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:16.185991+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"tfvbvamb"}
+{"time":"2025-01-21T12:28:16.186268+01:00","level":"INFO","msg":"stream: closed","id":"tfvbvamb"}

@@ -1,0 +1,16 @@
+{"time":"2025-01-21T12:47:46.193737+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-21T12:47:46.193792+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250121_124746-pjw21mw7/logs/debug-core.log"}
+{"time":"2025-01-21T12:47:46.304719+01:00","level":"INFO","msg":"created new stream","id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.304768+01:00","level":"INFO","msg":"stream: started","id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.304915+01:00","level":"INFO","msg":"handler: started","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.305+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.305002+01:00","level":"INFO","msg":"sender: started","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.666963+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-21T12:47:46.728399+01:00","level":"INFO","msg":"stream: closing","id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:46.728573+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-21T12:47:46.72901+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-21T12:47:47.673307+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-21T12:47:47.902889+01:00","level":"INFO","msg":"handler: closed","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:47.902939+01:00","level":"INFO","msg":"sender: closed","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:47.902923+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"pjw21mw7"}
+{"time":"2025-01-21T12:47:47.903247+01:00","level":"INFO","msg":"stream: closed","id":"pjw21mw7"}
