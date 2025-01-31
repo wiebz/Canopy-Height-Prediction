@@ -16,4 +16,4 @@ satellite_data/
 
 models/
 predictions/
-wandb/
+wandb/models/
