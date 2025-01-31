@@ -2,3 +2,4 @@ venv/
 backup-repo.git/
 models/
 predictions/
+wandb/

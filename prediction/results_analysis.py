@@ -7,9 +7,15 @@ mean_predictions_path = "./predictions/mean_predictions.pt"
 variance_predictions_path = "./predictions/variance_predictions.pt"
 all_predictions_path = "./predictions/all_predictions.pt"
 
+"""
 mean_predictions = torch.load(mean_predictions_path, weights_only=True)
 variance_predictions = torch.load(variance_predictions_path, weights_only=True)
 all_predictions = torch.load(all_predictions_path, weights_only=True)
+"""
+mean_predictions = torch.load(mean_predictions_path)
+variance_predictions = torch.load(variance_predictions_path)
+all_predictions = torch.load(all_predictions_path)
+
 
 # Extract some example values
 variance_sample = variance_predictions.flatten()[:10].tolist()
@@ -59,4 +65,5 @@ print("\nSample Mean Predictions:")
 print(mean_df.head())
 
 print("\nSample All Predictions:")
-print(all_predictions_df.head())
+#print(all_predictions_df.head())
+print(all_predictions_df.iloc[:, :10].head())

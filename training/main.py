@@ -8,6 +8,10 @@ import tempfile
 import warnings
 from contextlib import contextmanager
 
+# Add the project's root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(project_root)
+
 import wandb
 
 from training.runner import Runner
@@ -22,6 +26,7 @@ logging.getLogger('wandb').setLevel(logging.WARNING)
 
 warnings.filterwarnings('ignore')
 
+"""
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Training script for canopy height prediction.")
 parser.add_argument("--debug", action="store_true", help="Run in debug mode.")
@@ -33,17 +38,25 @@ model_save_dir = args.model_save_dir
 
 # Ensure the model save directory exists
 os.makedirs(model_save_dir, exist_ok=True)
+"""
+
+# Configuration parameters
+debug = False  # Set this manually to enable/disable debug mode
+MODEL_SAVE_DIR = "./models"  # Change this as needed
+
+# Ensure the model save directory exists
+os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
 
 defaults = dict(
     # Model save directory
-    model_save_dir=model_save_dir,
+    model_save_dir=MODEL_SAVE_DIR,
 
     # System
     seed=1,
 
     # Data
-    dataset='/dataset',#'ai4forest_debug',
+    dataset='',#'ai4forest_debug', 'sentinel_pauls_paper'
     batch_size=5,
 
     # Model variant specifics
@@ -57,7 +70,7 @@ defaults = dict(
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    n_iterations=5, #100
+    n_iterations=100, #100
     log_freq=5,
     initial_lr=1e-3,
     weight_decay=1e-2,
@@ -80,13 +93,21 @@ defaults = dict(
     n_lr_cycles=0,
     cyclic_mode='triangular2',
     )
-
+"""
 if not debug:
     # Set everything to None recursively
     defaults = GeneralUtility.fill_dict_with_none(defaults)
+"""
+if not debug:
+    # Only set `None` for missing keys, NOT overwrite everything
+    for key in defaults:
+        if defaults[key] is None:
+            defaults[key] = None  # Only change missing keys
 
 # Add the hostname to the defaults
 defaults['computer'] = socket.gethostname()
+
+print("Defaults before wandb.init:", defaults)
 
 # Configure wandb logging
 wandb.init(
@@ -94,8 +115,21 @@ wandb.init(
     project='test-000',  # automatically changed in sweep
     entity=None,  # automatically changed in sweep
 )
+
+print("Wandb config after init:", dict(wandb.config))  # Check what wandb is storing
+
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
+
+print("Config after update:", dict(config))  # Final check
+
+# Ensure None values are replaced with actual defaults
+for key, value in defaults.items():
+    if getattr(config, key, None) is None:
+        setattr(config, key, value)
+
+# Debug output
+print(f"Final config after update: {dict(config)}")
 
 
 @contextmanager

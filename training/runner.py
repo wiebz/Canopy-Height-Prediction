@@ -10,7 +10,9 @@ import numpy as np
 import segmentation_models_pytorch as smp
 import torch
 import wandb
-from torch.cuda.amp import autocast
+#from torch.cuda.amp import autocast
+from torch.amp import autocast  # Correct for PyTorch 2.0+
+from torch.amp import GradScaler  # Correct import for PyTorch 2.0+
 from torch.utils.data import WeightedRandomSampler
 from torchmetrics import MeanMetric
 from torchvision.transforms import transforms
@@ -97,7 +99,7 @@ class Runner:
 
         # Set a couple useful variables
         #self.seed = int(self.config.seed)
-        self.seed = int(getattr(self.config, 'seed', 42))
+        self.seed = int(getattr(self.config, 'seed', 1))
         self.loss_name = self.config.loss_name or 'shift_l1'
         sys.stdout.write(f"Using loss: {self.loss_name}.\n")
         self.use_amp = self.config.fp16
@@ -198,8 +200,8 @@ class Runner:
     def get_dataset_root(dataset_name: str) -> str:
         """Copies the dataset and returns the rootpath."""
         # Determine where the data lies
-        # for root in ['/Users/wiebkezink/Documents/Uni Münster/MA','/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
-        for root in ['/Users/wiebkezink/Documents/Uni Münster/MA']:
+        # for root in ['/Users/wiebkezink/Documents/Uni Münster/MA',, '/home/ubuntu/work/satellite_data/sentinel_pauls_paper''/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
+        for root in ['/Users/wiebkezink/Documents/Uni Münster/MA', '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map']:
             rootPath = f"{root}{dataset_name}"
             if os.path.isdir(rootPath):
                 break
@@ -567,7 +569,7 @@ class Runner:
                 new_state_dict[name] = v
             
             # Load the state_dict
-            print(f"State dict keys: {list(new_state_dict.keys())}")
+            # print(f"State dict keys: {list(new_state_dict.keys())}")
             model.load_state_dict(new_state_dict)
 
 
@@ -780,7 +782,8 @@ class Runner:
             y_target = y_target.to(self.device, non_blocking=True)
 
 
-            with autocast(enabled=self.use_amp):
+            #with autocast(enabled=self.use_amp):
+            with autocast("cuda", enabled=self.use_amp):
                 output = self.model.eval()(x_input)
                 loss = self.loss_criteria[self.loss_name](output, y_target)
                 self.metrics[data]['loss'](value=loss, weight=len(y_target))
@@ -808,7 +811,8 @@ class Runner:
         loggingDict = dict()
         for x_input, fileNames in tqdm(self.loader['fix_val']):
             x_input = x_input.to(self.device, non_blocking=True)
-            with autocast(enabled=self.use_amp):
+            #with autocast(enabled=self.use_amp):
+            with autocast("cuda", enabled=self.use_amp):
                 output = self.model.eval()(x_input)
             viz = viz_fn(inputs=x_input, labels=None, outputs=output)
             jointName = "__".join(fileNames)
@@ -942,7 +946,8 @@ class Runner:
 
     def train_single_model(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
-        ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        #ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        ampGradScaler = GradScaler("cuda", enabled=self.use_amp)  # Specify 'cuda' explicitly
         if not self.use_amp:
             self.logger.warning("AMP is disabled. Autocast will not be used.")
 
@@ -973,12 +978,25 @@ class Runner:
 
             x_input, y_target = self.apply_mixup(x_input, y_target)
 
+            # Check for NaNs in inputs
+            if torch.isnan(x_input).any() or torch.isnan(y_target).any():
+                self.logger.error(f"NaN detected in input or target at step {step}")
+                continue  # Skip this batch
+
+
             self.optimizer.zero_grad()
             itStartTime = time.time()
 
             # Forward pass with autocast for mixed precision
-            with autocast(enabled=self.use_amp):
+            #with autocast(enabled=self.use_amp):
+            with autocast("cuda", enabled=self.use_amp):
                 output = self.model.train()(x_input)
+
+                # Check for NaNs in model output
+                if torch.isnan(output).any():
+                    self.logger.error(f"NaN detected in model output at step {step}. Skipping batch.")
+                    continue
+                
                 loss = self.loss_criteria[self.loss_name](output, y_target)
                 #if self.debug and step % 5 == 0:  # Nur jede 5. Iteration
                 #    self.logger.debug(f"Iteration {step}: l1 = {metric_loss.item():.4f}")

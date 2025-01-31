@@ -9,24 +9,24 @@ from torch.utils.data.dataloader import default_collate
 import sys
 
 means = {
-    'dataset': (7299.1479, 6796.8154, 4115.0771, 4183.9517,  366.5581,  547.1146,
-         479.1360,  892.2798, 1931.0896, 2284.8613, 2331.2368, 2503.7361,
-        1584.9974,  927.7599),    # Not the true values, change for your dataset
+    'sentinel_pauls_paper': (7350.2964, 8265.4316, 5197.9922, 4661.1250,  743.4734, 1063.2332,
+        1328.1122, 1657.2146, 2194.5916, 2415.3865, 2473.2197, 2572.5078,
+        2590.8245, 2032.7953),    # Not the true values, change for your dataset
 }
 
 stds = {
-    'dataset': (774.4051, 676.9658, 698.3646, 789.2250, 101.2454, 124.4731, 140.2093,
-        155.5658, 309.7619, 368.0429, 397.1309, 387.4051, 239.8134, 194.8254),  # Not the true values, change for your dataset
+    'sentinel_pauls_paper': (847.7974, 897.7203, 928.9338, 874.8210, 176.5845, 211.8331, 279.8626,
+        279.1518, 334.1505, 371.3719, 395.3250, 387.0693, 370.0272, 339.1393),  # Not the true values, change for your dataset
 }
 
 percentiles = {
-    'dataset': {
-        1: (-7542.0, -8126.0, -16659.0, -14187.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        2: (-6834.0, -7255.0, -14468.0, -13537.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        5: (-5694.0, -5963.0, -12383.0, -12601.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        95: (24995.0, 24556.0, 22124.0, 20120.0, 15016.0, 15116.0, 15212.0, 15181.0, 14946.0, 14406.0, 14660.0, 13810.0, 12082.0, 13041.0),
-        98: (25969.0, 26078.0, 23632.0, 21934.0, 15648.0, 15608.0, 15487.0, 15449.0, 15296.0, 15155.0, 15264.0, 14943.0, 13171.0, 14064.0),
-        99: (27044.0, 27349.0, 24868.0, 23266.0, 15970.0, 15680.0, 15548.0, 15494.0, 15432.0, 15368.0, 15385.0, 15219.0, 13590.0, 14657.0),
+    'sentinel_pauls_paper': {
+        1: (-8956.0, -8706.0, -13676.0, -13721.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        2: (-7930.0, -7629.0, -12630.0, -12847.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        5: (-6502.0, -6262.0, -11293.0, -11611.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        95: (26317.0, 25280.0, 21480.0, 22595.0, 15959.0, 16047.0, 15919.0, 15811.0, 15795.0, 15767.0, 15751.0, 15705.0, 12344.0, 13236.0),
+        98: (27685.0, 26830.0, 23002.0, 24265.0, 16231.0, 16143.0, 15945.0, 15891.0, 15824.0, 15807.0, 15896.0, 15729.0, 13504.0, 14253.0),
+        99: (28788.0, 27897.0, 24213.0, 25487.0, 16403.0, 16208.0, 16080.0, 16102.0, 15924.0, 15976.0, 16000.0, 15818.0, 13813.0, 15047.0),
     }  # Not the true values, change for your dataset
 }
 
@@ -74,14 +74,25 @@ class FixValDataset(Dataset):
         data = np.load(file)
 
         image = data["data"].astype(np.float32)
-        print(f"original image shape: {image.shape}")
+        # print(f"original image shape: {image.shape}")
         # Move the channel axis to the last position (required for torchvision transforms) -> (H, W, C)
         image = np.moveaxis(image, 0, -1)
-        print(f"image shape for transformations: {image.shape}")
+        # print(f"image shape before transformations: {image.shape}")
         if self.image_transforms:
             image = self.image_transforms(image)
-        image = np.moveaxis(image, -1, 0)  # Move channels first for the model -> (C, H, W)
-        print(f"image shape after transformations: {image.shape}")
+        """
+        print(f"Image type before moveaxis: {type(image)}, Shape: {getattr(image, 'shape', 'Unknown')}")
+        
+        if not isinstance(image, np.ndarray):
+            print(f"Warning: Image is not a NumPy array, converting. Current type: {type(image)}")
+            image = np.array(image)  # Convert manually
+
+        if image.ndim < 3:
+            raise ValueError(f"Invalid image shape: {image.shape}. Expected at least 3 dimensions (H, W, C).")
+        """
+
+        #image = np.moveaxis(image, -1, 0)  # Move channels first for the model -> (C, H, W)
+        #print(f"image shape after transformations: {image.shape}")
 
         return image, fileName
 
