@@ -13,3 +13,7 @@ __pycache__/
 satellite_data/
 *.npz
 *.h5
+
+models/
+predictions/
+wandb/
