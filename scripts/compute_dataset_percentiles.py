@@ -6,8 +6,8 @@ import numpy as np
 from tqdm.auto import tqdm
 import sys
 # Assuming PreprocessedSatelliteDataset is defined in your project
-from config import PreprocessedSatelliteDataset
-from runner import Runner
+from training.config import PreprocessedSatelliteDataset
+from training.runner import Runner
 
 def update_extremes(values, extremes, num_extremes, largest=True):
     """
@@ -19,8 +19,11 @@ def update_extremes(values, extremes, num_extremes, largest=True):
 
 def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4):
     # Set up dataset and DataLoader
-    rootPath = Runner.get_dataset_root(dataset_name=dataset_name)
-    dataframe = os.path.join(rootPath, f'{split}.csv')
+    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
+    rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
+    print(f"Resolved dataset path: {rootPath}") # Debugging
+
+    dataframe = os.path.join(splitPath, f'{split}.csv')
 
     train_transforms = transforms.Compose([
         transforms.ToTensor(),
@@ -83,6 +86,6 @@ def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4)
 
 # Usage example
 percentiles = [1, 2, 5, 95, 98, 99]
-dataset_name = 'ai4forest_camera'
+dataset_name = 'sentinel_pauls_paper'
 split = 'train'
 percentile_values = compute_percentiles(dataset_name, split, percentiles)

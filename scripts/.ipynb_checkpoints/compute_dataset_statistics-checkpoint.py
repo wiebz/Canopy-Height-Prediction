@@ -5,26 +5,19 @@ from PIL import Image
 import os
 import numpy as np
 
-from training.config import PreprocessedSatelliteDataset
-from training.runner import Runner
+from config import PreprocessedSatelliteDataset
+from runner import Runner
 
 from tqdm.auto import tqdm
 
 def compute_mean_std(dataset, split):
-    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
-    rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
-
-    print(f"Resolved dataset path: {rootPath}") # Debugging
-
+    rootPath = Runner.get_dataset_root(dataset_name=dataset)
     if split == 'train':
-        dataframe = os.path.join(splitPath, 'train.csv')
+        dataframe = os.path.join(rootPath, 'train.csv')
     elif split == 'val':
-        dataframe = os.path.join(splitPath, 'val.csv')
+        dataframe = os.path.join(rootPath, 'val.csv')
     else:
         raise ValueError("Invalid split value. Expected 'train' or 'val'.")
-    
-    print(f"Looking for dataframe at: {dataframe}") # Debugging
-
     # Convert to tensor (this changes the order of the channels)
     train_transforms = transforms.Compose([
         transforms.ToTensor(),
@@ -55,7 +48,7 @@ def compute_mean_std(dataset, split):
     return mean, std
 
 # Load the dataset
-dataset = 'sentinel_pauls_paper'
+dataset = 'ai4forest_camera'
 split = 'train'
 
 

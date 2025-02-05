@@ -22,7 +22,7 @@ defaults = dict(
     seed=1,
 
     # Data
-    dataset='', #ai4forest_debug
+    dataset='ai4forest_debug',
     batch_size=5,
 
     # Architecture
@@ -32,12 +32,12 @@ defaults = dict(
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    loss_name='l2',  # Defaults to shift_l1
-    n_iterations=20, #100
+    loss_name='shift_huberf',  # Defaults to shift_l1
+    n_iterations=100,
     log_freq=5,
     initial_lr=1e-3,
     weight_decay=1e-2,
-    use_standardization=False, #default: False
+    use_standardization=False,
     use_augmentation=False,
     use_label_rescaling=False,
 
@@ -57,33 +57,22 @@ defaults = dict(
     cyclic_mode='triangular2',
     )
 
-print(f"Defaults: {defaults}")
-
-"""
 if not debug:
     # Set everything to None recursively
     defaults = GeneralUtility.fill_dict_with_none(defaults)
-"""
 
 # Add the hostname to the defaults
 defaults['computer'] = socket.gethostname()
-print(f"Defaults: {defaults}")
 
 # Configure wandb logging
 wandb.init(
     config=defaults,
-    project='base-001',  # automatically changed in sweep
+    project='test-000',  # automatically changed in sweep
     entity=None,  # automatically changed in sweep
 )
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
 
-# Ensure defaults are applied properly
-for key, value in defaults.items():
-    if getattr(config, key, None) is None:
-        setattr(config, key, value)  # Apply default if None
-
-print(f"WandB Config: {config.items}")
 
 @contextmanager
 def tempdir():
