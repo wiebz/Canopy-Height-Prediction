@@ -33,7 +33,7 @@ defaults = dict(
     # Optimization
     optim='AdamW',  # Defaults to AdamW
     loss_name='l2',  # Defaults to shift_l1
-    n_iterations=20, #100
+    n_iterations=100, #100
     log_freq=5,
     initial_lr=1e-3,
     weight_decay=1e-2,

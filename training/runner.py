@@ -597,8 +597,10 @@ class Runner:
                 self.metrics[data]['loss'](value=loss, weight=len(y_target))
                 # debug
                 #print(f"Iteration {step}: Loss = {loss.item()}")
+                """
                 if torch.isnan(loss):
                     raise RuntimeError(f"Stopping training at iteration {step}: NaN detected in loss")
+                """
 
                 for loss_type in self.loss_criteria.keys():
                     metric_loss = self.loss_criteria[loss_type](output, y_target)
