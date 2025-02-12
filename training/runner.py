@@ -67,6 +67,14 @@ class Runner:
             torch.cuda.device(self.device)
         torch.backends.cudnn.benchmark = True
 
+
+        # Variant setting
+        self.variant = self.config.get('variant', 'baseline')
+        
+        # Ensemble settings
+        if self.variant == 'ensemble':
+            self.ensemble_size = self.config.get('ensemble_size', 5)  # Für Ensemble
+
         # Set a couple useful variables
         self.seed = int(self.config.seed)
         self.loss_name = self.config.loss_name or 'l2' # vorher: shift_l1
@@ -474,20 +482,27 @@ class Runner:
         fName = f"{model_identifier}_model.pt"
         fPath = os.path.join(self.tmp_dir, fName)
 
+        # Permanent save directory
+        model_save_dir = self.config.get('model_save_dir', './models')
+        os.makedirs(model_save_dir, exist_ok=True)
+        permanent_fPath = os.path.join(model_save_dir, fName)
+
         # Only save models in their non-module version, to avoid problems when loading
         try:
-            #model_state_dict = self.model.module.state_dict()
-            # Use .module only if model is wrapped in DataParallel
             model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+            torch.save(model_state_dict, fPath)  # Temporary save
+            torch.save(model_state_dict, permanent_fPath)  # Permanent save
 
-        except AttributeError:
-            model_state_dict = self.model.state_dict()
+            if sync:
+                wandb.save(fPath)
 
-        torch.save(model_state_dict, fPath)  # Save the state_dict
-
-        if sync:
-            wandb.save(fPath)
-        return fPath
+            print(f"✅ Model successfully saved to: {permanent_fPath}")
+            return permanent_fPath
+        
+        except Exception as e:
+            print(f"Model saving failed: {e}")
+            return None
+        
 
     def log(self, step: int, phase_runtime: float):
         """
@@ -659,6 +674,18 @@ class Runner:
                 loggingDict[f"fixval/max_{name}"] = max_val.item()
         wandb.log(loggingDict, commit=False)
 
+    def train_ensemble(self):
+        self.model_paths['ensemble'] = []  # Sicherstellen, dass die Liste leer ist
+        ensemble = []
+        for i in range(self.ensemble_size):
+            sys.stdout.write(f"Training model {i+1}/{self.ensemble_size} in the ensemble.")
+            self.model = self.get_model(reinit=True)  # Reinitialisiere das Modell
+            self.train()  # Trainiere ein Modell
+            model_path = self.save_model(f'ensemble_model_{i}', sync=False)  # Speichere das Modell
+            ensemble.append(model_path)
+        self.model_paths['ensemble'] = ensemble
+
+
     def train(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
         #ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp) # old
@@ -757,8 +784,10 @@ class Runner:
                     self.eval(data='val')
 
                 # Create the fixval plots
+                """
                 if not self.debug:
                     self.eval_fixval()
+                """
 
                 self.log(step=step, phase_runtime=phase_runtime)
                 self.reset_averaged_metrics()
@@ -767,13 +796,21 @@ class Runner:
     def run(self):
         """Controls the execution of the script."""
         # We start training from scratch
-        self.set_seed(seed=self.seed)  # Set the seed
+        if not self.variant == 'ensemble': self.set_seed(seed=self.seed)  # Set the seed
         loaders = self.get_dataloaders()
         self.loader['train'], self.loader['val'], self.loader['fix_val'] = loaders
         self.model = self.get_model(reinit=True, model_path=self.model_paths['initial'])  # Load the model
 
         self.define_optimizer_scheduler()  # This was moved before define_strategy to have the optimizer available
 
-        self.train()  # Train the model
+        if self.variant == 'ensemble':
+            self.train_ensemble()  # Train the model
+
+        else:
+            self.train()
+
+            model_path = self.save_model(f'{self.variant}_model', sync=False)  # Speichere das Modell
+            self.model_paths[f'{self.variant}'] = model_path
+        
         # Save the trained model and upload it to wandb
         self.save_model(model_identifier='trained', sync=True)

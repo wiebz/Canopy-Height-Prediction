@@ -18,23 +18,30 @@ warnings.filterwarnings('ignore')
 debug = "--debug" in sys.argv
 
 defaults = dict(
+    # Model save directory
+    model_save_dir="./models",
+
     # System
-    seed=1,
+    seed=1, # bei ensemble rausnehmen!!
 
     # Data
     dataset='', #ai4forest_debug
-    batch_size=5,
+    batch_size=16,
 
     # Architecture
     arch='unet',  # Defaults to unet
     backbone='resnet50',  # Defaults to resnet50
     use_pretrained_model=False,
 
+    # Model variant specifics
+    variant='baseline', # 'ensemble', None
+    ensemble_size=3,
+    loss_name='l2',  # Defaults to shift_l1
+
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    loss_name='l2',  # Defaults to shift_l1
-    n_iterations=100, #100
-    log_freq=5,
+    n_iterations=50, #100, 25000
+    log_freq=50,
     initial_lr=1e-3,
     weight_decay=1e-2,
     use_standardization=False, #default: False
@@ -118,6 +125,19 @@ with tempdir() as tmp_dir:
 
     runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
     runner.run()
+
+    # Save the trained ensemble models
+    if config.variant == 'ensemble':
+        for idx, model_path in enumerate(runner.model_paths['ensemble']):
+            permanent_path = os.path.join(config.get('model_save_dir', './models'), f'ensemble_model_{idx}.pt')
+            shutil.copy(model_path, permanent_path)
+            print(f"Saved ensemble model {idx+1} to {permanent_path}")
+    else:
+        variant = config.variant
+        model_path = runner.model_paths[f'{variant}']
+        permanent_path = os.path.join(config.get('model_save_dir', './models'), f'{variant}_model.pt')
+        shutil.copy(model_path, permanent_path)
+        print(f"Saved {variant} model to {permanent_path}")            
 
     # Close wandb run
     wandb_dir_path = wandb.run.dir
