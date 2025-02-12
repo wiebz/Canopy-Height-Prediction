@@ -674,6 +674,7 @@ class Runner:
                 loggingDict[f"fixval/max_{name}"] = max_val.item()
         wandb.log(loggingDict, commit=False)
 
+
     def train_ensemble(self):
         self.model_paths['ensemble'] = []  # Sicherstellen, dass die Liste leer ist
         ensemble = []
@@ -809,7 +810,7 @@ class Runner:
         else:
             self.train()
 
-            model_path = self.save_model(f'{self.variant}_model', sync=False)  # Speichere das Modell
+            model_path = self.save_model(f'{self.variant}', sync=False)  # Speichere das Modell
             self.model_paths[f'{self.variant}'] = model_path
         
         # Save the trained model and upload it to wandb
