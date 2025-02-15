@@ -15,7 +15,16 @@ from torch.utils.data import WeightedRandomSampler
 from torchmetrics import MeanMetric
 from torchvision.transforms import transforms
 from tqdm.auto import tqdm
-
+"""
+from training import visualization
+from training.config import PreprocessedSatelliteDataset, FixValDataset
+from training.config import means as meanDict
+from training.config import percentiles as percentileDict
+from training.config import stds as stdDict
+from training.metrics import MetricsClass
+from training.utilities import JointRandomRotationTransform
+from training.utilities import SequentialSchedulers
+"""
 import visualization
 from config import PreprocessedSatelliteDataset, FixValDataset
 from config import means as meanDict
@@ -24,6 +33,7 @@ from config import stds as stdDict
 from metrics import MetricsClass
 from utilities import JointRandomRotationTransform
 from utilities import SequentialSchedulers
+
 
 
 class Runner:
@@ -57,9 +67,17 @@ class Runner:
             torch.cuda.device(self.device)
         torch.backends.cudnn.benchmark = True
 
+
+        # Variant setting
+        self.variant = self.config.get('variant', 'baseline')
+        
+        # Ensemble settings
+        if self.variant == 'ensemble':
+            self.ensemble_size = self.config.get('ensemble_size', 5)  # Für Ensemble
+
         # Set a couple useful variables
         self.seed = int(self.config.seed)
-        self.loss_name = self.config.loss_name or 'shift_l1'
+        self.loss_name = self.config.loss_name or 'l2' # vorher: shift_l1
         sys.stdout.write(f"Using loss: {self.loss_name}.\n")
         self.use_amp = self.config.fp16
         self.tmp_dir = tmp_dir
@@ -71,7 +89,7 @@ class Runner:
 
         # Variables to be set
         self.loader = {loader_type: None for loader_type in ['train', 'val']}
-        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber']}
+        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber']} #'l1', 'l2'
         for threshold in [15, 20, 25, 30]:
             self.loss_criteria[f"l1_{threshold}"] = self.get_loss(loss_name=f"l1", threshold=threshold)
 
@@ -99,6 +117,7 @@ class Runner:
 
         self.metrics['train']['ips_throughput'] = MeanMetric().to(device=self.device)
 
+
     @staticmethod
     def set_seed(seed: int):
         """
@@ -110,6 +129,9 @@ class Runner:
         torch.manual_seed(seed)
         # Remark: If you are working with a multi-GPU model, this function is insufficient to get determinism. To seed all GPUs, use manual_seed_all().
         torch.cuda.manual_seed(seed)  # This works if CUDA not available
+
+        print(f"Using seed: {seed}")  # Log the seed
+ 
 
     def reset_averaged_metrics(self):
         """Resets all metrics"""
@@ -146,11 +168,11 @@ class Runner:
     def get_dataset_root(dataset_name: str) -> str:
         """Copies the dataset and returns the rootpath."""
         # Determine where the data lies
-        for root in ['/home/ubuntu/work/satellite_data/sentinel_pauls_paper/', '/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
+        for root in ['/home/ubuntu/work/saved_data/Global-Canopy-Height-Map/']:#'/home/ubuntu/work/satellite_data/sentinel_pauls_paper/', '/home/htc/mzimmer/SCRATCH/', './datasets_pytorch/', '/home/jovyan/work/scratch/']:  # SCRATCHAIS2T, local, scratch_jan
             rootPath = f"{root}{dataset_name}"
             if os.path.isdir(rootPath):
                 break
-        """
+        
         is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
         is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
         sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")
@@ -196,7 +218,7 @@ class Runner:
                 if wait_it == 360:
                     # Waited 1 hour, this should be done by now, check for errors
                     raise Exception("Waiting time too long.")
-        """
+        
         return rootPath
 
     def get_dataloaders(self):
@@ -281,7 +303,7 @@ class Runner:
         valLoader = torch.utils.data.DataLoader(valData, batch_size=self.config.batch_size, shuffle=False,
                                                 pin_memory=torch.cuda.is_available(), num_workers=num_workers)
         fixvalLoader = torch.utils.data.DataLoader(fixvalData, batch_size=2, shuffle=False, # This only works with batch_size=2
-                                                pin_memory=torch.cuda.is_available(), num_workers=num_workers)
+                                                pin_memory=torch.cuda.is_available(), num_workers=num_workers, drop_last=True) # ADDED: drop_last=True
 
         return trainLoader, valLoader, fixvalLoader
 
@@ -360,13 +382,24 @@ class Runner:
         return model
 
     def get_loss(self, loss_name: str, threshold: float = None):
-        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber'], f"Loss {loss_name} not implemented."
+        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber'], f"Loss {loss_name} not implemented." #'l1', 'l2'
         if threshold is not None:
             assert loss_name == 'l1', f"Threshold only implemented for l1 loss, not {loss_name}."
         # Dim 1 is the channel dimension, 0 is batch.
         # Sums up to get average height, could be mean without zeros
         remove_sub_track = lambda out, target: (out, torch.sum(target, dim=1))
+        """
+        if loss_name == 'l1':
+            from losses.l1_loss import L1Loss
+            # Rescale the threshold to account for the label rescaling
+            if threshold is not None:
+                threshold = threshold / self.label_rescaling_factor
+            loss = L1Loss(ignore_value=0, pre_calculation_function=remove_sub_track, lower_threshold=threshold)
+        elif loss_name == 'l2':
+            from losses.l2_loss import L2Loss
+            loss = L2Loss(ignore_value=0, pre_calculation_function=remove_sub_track)
 
+        """
         if loss_name == 'shift_l1':
             from losses.shift_l1_loss import ShiftL1Loss
             loss = ShiftL1Loss(ignore_value=0)
@@ -388,6 +421,7 @@ class Runner:
         elif loss_name == 'huber':
             from losses.huber_loss import HuberLoss
             loss = HuberLoss(ignore_value=0, pre_calculation_function=remove_sub_track, delta=3.0)
+        
         loss = loss.to(device=self.device)
         return loss
 
@@ -449,20 +483,31 @@ class Runner:
         :return: Path to the saved model.
         :rtype: str
         """
-        fName = f"{model_identifier}_model.pt"
+        fName = f"{model_identifier}.pt"
         fPath = os.path.join(self.tmp_dir, fName)
+
+        """
+        # Permanent save directory
+        model_save_dir = self.config.get('model_save_dir', './models')
+        os.makedirs(model_save_dir, exist_ok=True)
+        """
 
         # Only save models in their non-module version, to avoid problems when loading
         try:
-            model_state_dict = self.model.module.state_dict()
-        except AttributeError:
-            model_state_dict = self.model.state_dict()
+            model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+            torch.save(model_state_dict, fPath)  # Temporary save
 
-        torch.save(model_state_dict, fPath)  # Save the state_dict
+            if sync:
+                wandb.save(fPath)
 
-        if sync:
-            wandb.save(fPath)
-        return fPath
+            print(f"✅ Model successfully saved to: {fPath}")
+            
+            return fPath
+        
+        except Exception as e:
+            print(f"Model saving failed: {e}")
+            return None
+        
 
     def log(self, step: int, phase_runtime: float):
         """
@@ -536,16 +581,28 @@ class Runner:
         """
         sys.stdout.write(f"Evaluating on {data} split.\n")
         for step, (x_input, y_target) in enumerate(tqdm(self.loader[data]), 1):
+                
             x_input = x_input.to(self.device, non_blocking=True)
             y_target = y_target.to(self.device, non_blocking=True)
 
 
-            with autocast(enabled=self.use_amp):
+            # with autocast(enabled=self.use_amp): old
+            with torch.amp.autocast('cuda',enabled=self.use_amp):
                 output = self.model.eval()(x_input)
+
+                # DEBUG: ✅ Clip outputs to avoid extreme values
+                # output = torch.clamp(output, min=-1000, max=1000)
+                # Check if the model is producing NaNs
+                if torch.isnan(output).any():
+                    print(f"⚠️ NaN detected in model output at step {step}")
+                
                 loss = self.loss_criteria[self.loss_name](output, y_target)
+
                 self.metrics[data]['loss'](value=loss, weight=len(y_target))
+
                 for loss_type in self.loss_criteria.keys():
                     metric_loss = self.loss_criteria[loss_type](output, y_target)
+
                     # Check if the metric_loss is nan
                     if not torch.isnan(metric_loss):
                         self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
@@ -568,8 +625,16 @@ class Runner:
         loggingDict = dict()
         for x_input, fileNames in tqdm(self.loader['fix_val']):
             x_input = x_input.to(self.device, non_blocking=True)
-            with autocast(enabled=self.use_amp):
+
+            with torch.amp.autocast('cuda', enabled=self.use_amp):
                 output = self.model.eval()(x_input)
+
+            # ✅ **New Fix: Check Number of Channels Before Visualization**
+            if x_input.shape[1] < 3:  
+                print(f"⚠️ Skipping visualization: Only {x_input.shape[1]} input channels available.")
+                continue  # Skip this visualization if fewer than 3 channels
+
+
             viz = viz_fn(inputs=x_input, labels=None, outputs=output)
             jointName = "__".join(fileNames)
             wandb.log({'fixval' + '/' + 'input_output' + '/' + jointName: wandb.Image(viz)}, commit=False)
@@ -586,9 +651,41 @@ class Runner:
                 loggingDict[f"fixval/max_{name}"] = max_val.item()
         wandb.log(loggingDict, commit=False)
 
+
+    def train_ensemble(self):
+        self.model_paths['ensemble'] = []  # make sure the list is empty
+        ensemble = []
+        for i in range(self.ensemble_size):
+            seed = i
+            self.set_seed(seed=seed)  # Set the seed
+            sys.stdout.write(f"Training model {i+1}/{self.ensemble_size} with seed {seed}\n")
+
+            # Start a new WandB run for each ensemble member
+            wandb.init(
+                config=dict(self.config),
+                project='base-001',
+                name=f'ensemble_model_{i}',
+                entity=None,
+                reinit=True
+            )
+
+            # Reinitialize and train the ensemble member
+            self.model = self.get_model(reinit=True)
+            self.train()
+
+            # Save the trained model
+            model_path = self.save_model(f'name1_ensemble_model_{i}', sync=True)  # Save model and push to WandB
+            ensemble.append(model_path)
+
+            # Finish WandB run to ensure separation
+            wandb.finish()
+    
+        self.model_paths['ensemble'] = ensemble
+
+
     def train(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
-        ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        ampGradScaler = torch.amp.GradScaler('cuda',enabled=self.use_amp)
 
         self.reset_averaged_metrics()
         phase_start = time.time()
@@ -607,6 +704,9 @@ class Runner:
             sys.stdout.write(f"Using mixup with alpha={alpha}. Example sample: {beta_distribution.sample()}\n")
 
         for step in tqdm(range(1, n_iterations + 1, 1)):
+            # debug
+            print(f"Training iteration: {step}/{n_iterations}")
+
             # Reinitialize the train iterator if it reaches the end
             if step == 1 or (step - 1) % len(self.loader['train']) == 0:
                 train_iterator = iter(self.loader['train'])
@@ -627,8 +727,9 @@ class Runner:
             self.optimizer.zero_grad()
 
             itStartTime = time.time()
-            with autocast(enabled=self.use_amp):
+            with torch.amp.autocast('cuda',enabled=self.use_amp):
                 output = self.model.train()(x_input)
+                # print(f"output shape: {output.shape}") #DEBUG
                 loss = self.loss_criteria[self.loss_name](output, y_target)
                 ampGradScaler.scale(loss).backward()  # Scaling + Backpropagation
                 # Unscale the weights manually, normally this would be done by ampGradScaler.step(), but since
@@ -666,6 +767,7 @@ class Runner:
 
             if step % log_freq == 0 or step == n_iterations:
                 phase_runtime = time.time() - phase_start
+                
                 # Create the visualizations
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
                     viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output)
@@ -676,8 +778,10 @@ class Runner:
                     self.eval(data='val')
 
                 # Create the fixval plots
+                """
                 if not self.debug:
                     self.eval_fixval()
+                """
 
                 self.log(step=step, phase_runtime=phase_runtime)
                 self.reset_averaged_metrics()
@@ -686,13 +790,19 @@ class Runner:
     def run(self):
         """Controls the execution of the script."""
         # We start training from scratch
-        self.set_seed(seed=self.seed)  # Set the seed
+        if not self.variant == 'ensemble': 
+            self.set_seed(seed=self.seed)  # Set the seed
         loaders = self.get_dataloaders()
         self.loader['train'], self.loader['val'], self.loader['fix_val'] = loaders
         self.model = self.get_model(reinit=True, model_path=self.model_paths['initial'])  # Load the model
 
         self.define_optimizer_scheduler()  # This was moved before define_strategy to have the optimizer available
 
-        self.train()  # Train the model
-        # Save the trained model and upload it to wandb
-        self.save_model(model_identifier='trained', sync=True)
+        if self.variant == 'ensemble':
+            self.train_ensemble()  # Train the ensemble model
+
+        else:
+            self.train()
+            # Save the trained model and upload it to wandb
+            model_path = self.save_model(f'{self.variant}', sync=True)  # Speichere das Modell
+            self.model_paths[f'{self.variant}'] = model_path

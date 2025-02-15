@@ -34,14 +34,14 @@ defaults = dict(
     use_pretrained_model=False,
 
     # Model variant specifics
-    variant='baseline', # 'ensemble', None
+    variant='baseline', # 'ensemble', 'baseline'
     ensemble_size=3,
     loss_name='l2',  # Defaults to shift_l1
 
     # Optimization
     optim='AdamW',  # Defaults to AdamW
-    n_iterations=50, #100, 25000
-    log_freq=50,
+    n_iterations=50000, #100, 25000
+    log_freq=2000,
     initial_lr=1e-3,
     weight_decay=1e-2,
     use_standardization=False, #default: False
@@ -76,6 +76,8 @@ if not debug:
 defaults['computer'] = socket.gethostname()
 print(f"Defaults: {defaults}")
 
+
+
 # Configure wandb logging
 wandb.init(
     config=defaults,
@@ -84,11 +86,6 @@ wandb.init(
 )
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
-
-# Ensure defaults are applied properly
-for key, value in defaults.items():
-    if getattr(config, key, None) is None:
-        setattr(config, key, value)  # Apply default if None
 
 print(f"WandB Config: {config.items}")
 
@@ -129,20 +126,21 @@ with tempdir() as tmp_dir:
     # Save the trained ensemble models
     if config.variant == 'ensemble':
         for idx, model_path in enumerate(runner.model_paths['ensemble']):
-            permanent_path = os.path.join(config.get('model_save_dir', './models'), f'ensemble_model_{idx}.pt')
+            permanent_path = os.path.join(config.get('model_save_dir', './models'), f'test_ensemble_model_{idx}.pt')
             shutil.copy(model_path, permanent_path)
             print(f"Saved ensemble model {idx+1} to {permanent_path}")
+    
     else:
         variant = config.variant
         model_path = runner.model_paths[f'{variant}']
         permanent_path = os.path.join(config.get('model_save_dir', './models'), f'{variant}_model.pt')
         shutil.copy(model_path, permanent_path)
-        print(f"Saved {variant} model to {permanent_path}")            
+        print(f"Saved {variant} model to {permanent_path}")
 
-    # Close wandb run
-    wandb_dir_path = wandb.run.dir
-    wandb.join()
-
-    # Delete the local files
-    if os.path.exists(wandb_dir_path):
-        shutil.rmtree(wandb_dir_path)
+        # Close wandb run
+        wandb_dir_path = wandb.run.dir
+        wandb.join()
+    
+        # Delete the local files
+        if os.path.exists(wandb_dir_path):
+            shutil.rmtree(wandb_dir_path)

@@ -117,6 +117,7 @@ class Runner:
 
         self.metrics['train']['ips_throughput'] = MeanMetric().to(device=self.device)
 
+
     @staticmethod
     def set_seed(seed: int):
         """
@@ -128,6 +129,9 @@ class Runner:
         torch.manual_seed(seed)
         # Remark: If you are working with a multi-GPU model, this function is insufficient to get determinism. To seed all GPUs, use manual_seed_all().
         torch.cuda.manual_seed(seed)  # This works if CUDA not available
+
+        print(f"Using seed: {seed}")  # Log the seed
+ 
 
     def reset_averaged_metrics(self):
         """Resets all metrics"""
@@ -479,25 +483,26 @@ class Runner:
         :return: Path to the saved model.
         :rtype: str
         """
-        fName = f"{model_identifier}_model.pt"
+        fName = f"{model_identifier}.pt"
         fPath = os.path.join(self.tmp_dir, fName)
 
+        """
         # Permanent save directory
         model_save_dir = self.config.get('model_save_dir', './models')
         os.makedirs(model_save_dir, exist_ok=True)
-        permanent_fPath = os.path.join(model_save_dir, fName)
+        """
 
         # Only save models in their non-module version, to avoid problems when loading
         try:
             model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
             torch.save(model_state_dict, fPath)  # Temporary save
-            torch.save(model_state_dict, permanent_fPath)  # Permanent save
 
             if sync:
                 wandb.save(fPath)
 
-            print(f"✅ Model successfully saved to: {permanent_fPath}")
-            return permanent_fPath
+            print(f"✅ Model successfully saved to: {fPath}")
+            
+            return fPath
         
         except Exception as e:
             print(f"Model saving failed: {e}")
@@ -576,15 +581,6 @@ class Runner:
         """
         sys.stdout.write(f"Evaluating on {data} split.\n")
         for step, (x_input, y_target) in enumerate(tqdm(self.loader[data]), 1):
-            
-            # DEBUG: Check for NaNs in input and target
-            """
-            if torch.isnan(x_input).any():
-                print(f"⚠️ NaN detected in {data} input at step {step}")
-            
-            if torch.isnan(y_target).any():
-                print(f"⚠️ NaN detected in {data} labels at step {step}")
-            """
                 
             x_input = x_input.to(self.device, non_blocking=True)
             y_target = y_target.to(self.device, non_blocking=True)
@@ -602,29 +598,10 @@ class Runner:
                 
                 loss = self.loss_criteria[self.loss_name](output, y_target)
 
-                # ✅ **New Fix: Skip NaN Loss**
-                """
-                if torch.isnan(loss):
-                    print(f"⚠️ NaN detected in {data} loss at step {step}. Skipping update.")
-                    continue  # Skip this batch if NaN loss
-                """
-
                 self.metrics[data]['loss'](value=loss, weight=len(y_target))
-                # debug
-                #print(f"Iteration {step}: Loss = {loss.item()}")
-                """
-                if torch.isnan(loss):
-                    raise RuntimeError(f"Stopping training at iteration {step}: NaN detected in loss")
-                """
 
                 for loss_type in self.loss_criteria.keys():
                     metric_loss = self.loss_criteria[loss_type](output, y_target)
-                    # debug
-                    """
-                    if torch.isnan(metric_loss):
-                        print(f"⚠️ NaN detected in {data} metric {loss_type}. Skipping batch.")
-                        continue  # Skip this batch
-                    """
 
                     # Check if the metric_loss is nan
                     if not torch.isnan(metric_loss):
@@ -676,20 +653,38 @@ class Runner:
 
 
     def train_ensemble(self):
-        self.model_paths['ensemble'] = []  # Sicherstellen, dass die Liste leer ist
+        self.model_paths['ensemble'] = []  # make sure the list is empty
         ensemble = []
         for i in range(self.ensemble_size):
-            sys.stdout.write(f"Training model {i+1}/{self.ensemble_size} in the ensemble.")
-            self.model = self.get_model(reinit=True)  # Reinitialisiere das Modell
-            self.train()  # Trainiere ein Modell
-            model_path = self.save_model(f'ensemble_model_{i}', sync=False)  # Speichere das Modell
+            seed = i
+            self.set_seed(seed=seed)  # Set the seed
+            sys.stdout.write(f"Training model {i+1}/{self.ensemble_size} with seed {seed}\n")
+
+            # Start a new WandB run for each ensemble member
+            wandb.init(
+                config=dict(self.config),
+                project='base-001',
+                name=f'ensemble_model_{i}',
+                entity=None,
+                reinit=True
+            )
+
+            # Reinitialize and train the ensemble member
+            self.model = self.get_model(reinit=True)
+            self.train()
+
+            # Save the trained model
+            model_path = self.save_model(f'name1_ensemble_model_{i}', sync=True)  # Save model and push to WandB
             ensemble.append(model_path)
+
+            # Finish WandB run to ensure separation
+            wandb.finish()
+    
         self.model_paths['ensemble'] = ensemble
 
 
     def train(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
-        #ampGradScaler = torch.cuda.amp.GradScaler(enabled=self.use_amp) # old
         ampGradScaler = torch.amp.GradScaler('cuda',enabled=self.use_amp)
 
         self.reset_averaged_metrics()
@@ -772,13 +767,11 @@ class Runner:
 
             if step % log_freq == 0 or step == n_iterations:
                 phase_runtime = time.time() - phase_start
-                # Create the visualizations
                 
-                """
+                # Create the visualizations
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
                     viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output)
                     wandb.log({'train/' + viz_func: wandb.Image(viz)}, commit=False)
-                """
 
                 # Evaluate the validation dataset
                 if not self.debug:
@@ -797,7 +790,8 @@ class Runner:
     def run(self):
         """Controls the execution of the script."""
         # We start training from scratch
-        if not self.variant == 'ensemble': self.set_seed(seed=self.seed)  # Set the seed
+        if not self.variant == 'ensemble': 
+            self.set_seed(seed=self.seed)  # Set the seed
         loaders = self.get_dataloaders()
         self.loader['train'], self.loader['val'], self.loader['fix_val'] = loaders
         self.model = self.get_model(reinit=True, model_path=self.model_paths['initial'])  # Load the model
@@ -805,13 +799,10 @@ class Runner:
         self.define_optimizer_scheduler()  # This was moved before define_strategy to have the optimizer available
 
         if self.variant == 'ensemble':
-            self.train_ensemble()  # Train the model
+            self.train_ensemble()  # Train the ensemble model
 
         else:
             self.train()
-
-            model_path = self.save_model(f'{self.variant}', sync=False)  # Speichere das Modell
+            # Save the trained model and upload it to wandb
+            model_path = self.save_model(f'{self.variant}', sync=True)  # Speichere das Modell
             self.model_paths[f'{self.variant}'] = model_path
-        
-        # Save the trained model and upload it to wandb
-        self.save_model(model_identifier='trained', sync=True)
