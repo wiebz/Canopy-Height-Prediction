@@ -106,8 +106,11 @@ def get_input_output_visualization(
             inputs, labels, outputs = process_variables(inputs, labels, outputs)
 
         fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+        
+        # print(f"inputs shape: {inputs.shape}") # DEBUG
 
         inputs_normalized = np.clip(inputs / 3000, 0, 1)
+        # print(f"inputs_normalized shape: {inputs_normalized.shape}") # DEBUG
 
         # loop over the first two images
         for i in range(2):

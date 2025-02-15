@@ -5,12 +5,13 @@ from PIL import Image
 import os
 import numpy as np
 
-from training.config import PreprocessedSatelliteDataset
-from training.runner import Runner
+from config import PreprocessedSatelliteDataset
+from runner import Runner
 
 from tqdm.auto import tqdm
 
 def compute_mean_std(dataset, split):
+
     #rootPath = Runner.get_dataset_root(dataset_name=dataset)
     rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
 
@@ -22,7 +23,7 @@ def compute_mean_std(dataset, split):
         dataframe = os.path.join(rootPath, 'val.csv')
     else:
         raise ValueError("Invalid split value. Expected 'train' or 'val'.")
-    
+
     print(f"Looking for dataframe at: {dataframe}") # Debugging
 
     # Convert to tensor (this changes the order of the channels)
@@ -55,7 +56,7 @@ def compute_mean_std(dataset, split):
     return mean, std
 
 # Load the dataset
-dataset = 'dataset'
+dataset = 'sentinel_pauls_paper'
 split = 'train'
 
 
@@ -74,9 +75,9 @@ dump_path = os.path.join(results_dir, f'{dataset}_{split}_mean_std.txt')
 
 print(f"Saving statistics to: {dump_path}")
 
-
 # Dump the mean and std to a file in the current working directory
 #dump_path = os.path.join(os.getcwd(), f'{dataset}_{split}_mean_std.txt') # keine Schreibrechte im scripts folder
+
 with open(dump_path, 'w') as f:
     f.write(f'Mean: {mean}\n')
     f.write(f'Std: {std}\n')

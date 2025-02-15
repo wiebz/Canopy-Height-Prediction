@@ -16,11 +16,11 @@ from training.runner import Runner
 from tqdm.auto import tqdm
 
 def compute_mean_std(dataset, split):
+
     #rootPath = Runner.get_dataset_root(dataset_name=dataset)
     #rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
     splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
     rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
-
 
     print(f"Resolved dataset path: {rootPath}") # Debugging
 
