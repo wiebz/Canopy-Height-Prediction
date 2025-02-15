@@ -1,0 +1,16 @@
+{"time":"2025-01-17T12:51:33.831456+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-17T12:51:33.831497+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250117_125133-2nnn9waf/logs/debug-core.log"}
+{"time":"2025-01-17T12:51:33.943404+01:00","level":"INFO","msg":"created new stream","id":"2nnn9waf"}
+{"time":"2025-01-17T12:51:33.943477+01:00","level":"INFO","msg":"stream: started","id":"2nnn9waf"}
+{"time":"2025-01-17T12:51:33.943679+01:00","level":"INFO","msg":"handler: started","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:51:33.943726+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:51:33.943728+01:00","level":"INFO","msg":"sender: started","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:51:34.291433+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-17T12:52:21.390357+01:00","level":"INFO","msg":"stream: closing","id":"2nnn9waf"}
+{"time":"2025-01-17T12:52:21.390512+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-17T12:52:21.391164+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-17T12:52:22.083453+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-17T12:52:22.32411+01:00","level":"INFO","msg":"handler: closed","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:52:22.324169+01:00","level":"INFO","msg":"sender: closed","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:52:22.324158+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"2nnn9waf"}
+{"time":"2025-01-17T12:52:22.324646+01:00","level":"INFO","msg":"stream: closed","id":"2nnn9waf"}

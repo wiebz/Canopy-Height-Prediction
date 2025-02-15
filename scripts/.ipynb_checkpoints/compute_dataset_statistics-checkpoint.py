@@ -11,13 +11,21 @@ from runner import Runner
 from tqdm.auto import tqdm
 
 def compute_mean_std(dataset, split):
-    rootPath = Runner.get_dataset_root(dataset_name=dataset)
+
+    #rootPath = Runner.get_dataset_root(dataset_name=dataset)
+    rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
+
+    print(f"Resolved dataset path: {rootPath}") # Debugging
+
     if split == 'train':
         dataframe = os.path.join(rootPath, 'train.csv')
     elif split == 'val':
         dataframe = os.path.join(rootPath, 'val.csv')
     else:
         raise ValueError("Invalid split value. Expected 'train' or 'val'.")
+
+    print(f"Looking for dataframe at: {dataframe}") # Debugging
+
     # Convert to tensor (this changes the order of the channels)
     train_transforms = transforms.Compose([
         transforms.ToTensor(),
@@ -48,7 +56,7 @@ def compute_mean_std(dataset, split):
     return mean, std
 
 # Load the dataset
-dataset = 'ai4forest_camera'
+dataset = 'sentinel_pauls_paper'
 split = 'train'
 
 
@@ -57,8 +65,19 @@ mean, std = compute_mean_std(dataset=dataset, split=split)
 print(f'Mean: {mean}')
 print(f'Std: {std}')
 
+
+# Define the results directory
+results_dir = './results'
+os.makedirs(results_dir, exist_ok=True)
+
+# Define the dump path
+dump_path = os.path.join(results_dir, f'{dataset}_{split}_mean_std.txt')
+
+print(f"Saving statistics to: {dump_path}")
+
 # Dump the mean and std to a file in the current working directory
-dump_path = os.path.join(os.getcwd(), f'{dataset}_{split}_mean_std.txt')
+#dump_path = os.path.join(os.getcwd(), f'{dataset}_{split}_mean_std.txt') # keine Schreibrechte im scripts folder
+
 with open(dump_path, 'w') as f:
     f.write(f'Mean: {mean}\n')
     f.write(f'Std: {std}\n')

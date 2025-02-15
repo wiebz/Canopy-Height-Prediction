@@ -9,25 +9,24 @@ from torch.utils.data.dataloader import default_collate
 import sys
 
 means = {
-    'ai4forest_camera': (10782.3223,  3304.7444,  1999.6086,  7276.4209,  1186.4460,  1884.6165,
-         2645.6113,  3128.2588,  3806.2808,  4134.6855,  4113.4883,  4259.1885,
-         4683.5879,  3838.2222),    # Not the true values, change for your dataset
+    'sentinel_pauls_paper': (7350.2964, 8265.4316, 5197.9922, 4661.1250,  743.4734, 1063.2332,
+        1328.1122, 1657.2146, 2194.5916, 2415.3865, 2473.2197, 2572.5078,
+        2590.8245, 2032.7953),    # Not the true values, change for your dataset
 }
 
 stds = {
-    'ai4forest_camera': (907.7484,  472.1412,  423.8558, 1086.0916,  175.0936,  226.6303,
-         299.4834,  313.0911,  388.1186,  434.4579,  455.7314,  455.0303,
-         388.5127,  374.1260),  # Not the true values, change for your dataset
+    'sentinel_pauls_paper': (847.7974, 897.7203, 928.9338, 874.8210, 176.5845, 211.8331, 279.8626,
+        279.1518, 334.1505, 371.3719, 395.3250, 387.0693, 370.0272, 339.1393),  # Not the true values, change for your dataset
 }
 
 percentiles = {
-    'ai4forest_camera': {
-        1: (-7542.0, -8126.0, -16659.0, -14187.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        2: (-6834.0, -7255.0, -14468.0, -13537.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        5: (-5694.0, -5963.0, -12383.0, -12601.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        95: (24995.0, 24556.0, 22124.0, 20120.0, 15016.0, 15116.0, 15212.0, 15181.0, 14946.0, 14406.0, 14660.0, 13810.0, 12082.0, 13041.0),
-        98: (25969.0, 26078.0, 23632.0, 21934.0, 15648.0, 15608.0, 15487.0, 15449.0, 15296.0, 15155.0, 15264.0, 14943.0, 13171.0, 14064.0),
-        99: (27044.0, 27349.0, 24868.0, 23266.0, 15970.0, 15680.0, 15548.0, 15494.0, 15432.0, 15368.0, 15385.0, 15219.0, 13590.0, 14657.0),
+    'sentinel_pauls_paper': {
+        1: (-8956.0, -8706.0, -13676.0, -13721.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        2: (-7930.0, -7629.0, -12630.0, -12847.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        5: (-6502.0, -6262.0, -11293.0, -11611.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        95: (26317.0, 25280.0, 21480.0, 22595.0, 15959.0, 16047.0, 15919.0, 15811.0, 15795.0, 15767.0, 15751.0, 15705.0, 12344.0, 13236.0),
+        98: (27685.0, 26830.0, 23002.0, 24265.0, 16231.0, 16143.0, 15945.0, 15891.0, 15824.0, 15807.0, 15896.0, 15729.0, 13504.0, 14253.0),
+        99: (28788.0, 27897.0, 24213.0, 25487.0, 16403.0, 16208.0, 16080.0, 16102.0, 15924.0, 15976.0, 16000.0, 15818.0, 13813.0, 15047.0),
     }  # Not the true values, change for your dataset
 }
 
@@ -38,7 +37,7 @@ class FixValDataset(Dataset):
     def __init__(self, data_path, dataframe, image_transforms=None):
         self.data_path = data_path
         self.df = pd.read_csv(dataframe, index_col=False)
-        self.files = list(self.df["paths"].apply(lambda x: os.path.join(data_path, x)))
+        self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, x)))
         self.image_transforms = image_transforms
 
     def __len__(self):
@@ -70,14 +69,17 @@ class PreprocessedSatelliteDataset(Dataset):
         df = pd.read_csv(dataframe)
 
         if remove_corrupt:
-            old_len = len(df)
-            #df = df[df["missing_s2_flag"] == False] # Use only the rows that are not corrupt, i.e. those where df["missing_s2_flag"] == False
+            if "has_corrupt_s2_channel_flag" in df.columns:
+                old_len = len(df)
+                df = df[df["has_corrupt_s2_channel_flag"] == False]
+                sys.stdout.write(f"Removed {old_len - len(df)} corrupt rows.\n")
+            else:
+                sys.stdout.write("Warning: Column 'has_corrupt_s2_channel_flag' not found. Proceeding without filtering corrupt rows.\n")
 
-            # Use only the rows that are not corrupt, i.e. those where df["has_corrupt_s2_channel_flag"] == False
-            df = df[df["has_corrupt_s2_channel_flag"] == False]
-            sys.stdout.write(f"Removed {old_len - len(df)} corrupt rows.\n")
+        #self.files = list(df["paths"].apply(lambda x: os.path.join(data_path, x)))
+        self.df = df # neu , warum?
+        self.files = list(df["path"].apply(lambda x: os.path.join(data_path, x)))
 
-        self.files = list(df["paths"].apply(lambda x: os.path.join(data_path, x)))
 
         if use_weighted_sampler not in [False, None]:
             assert use_weighted_sampler in ['g5', 'g10', 'g15', 'g20', 'g25', 'g30']

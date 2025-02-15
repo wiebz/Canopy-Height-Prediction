@@ -8,3 +8,5 @@ tqdm
 matplotlib
 seaborn
 scipy
+scikit-learn
+segmentation_models_pytorch

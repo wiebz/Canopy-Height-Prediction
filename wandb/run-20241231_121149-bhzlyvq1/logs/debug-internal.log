@@ -1,0 +1,16 @@
+{"time":"2024-12-31T12:11:49.12785+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-31T12:11:49.127891+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20241231_121149-bhzlyvq1/logs/debug-core.log"}
+{"time":"2024-12-31T12:11:49.238024+01:00","level":"INFO","msg":"created new stream","id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:49.238088+01:00","level":"INFO","msg":"stream: started","id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:49.238287+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:49.238337+01:00","level":"INFO","msg":"handler: started","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:49.238354+01:00","level":"INFO","msg":"sender: started","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:49.584589+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-31T12:11:51.39892+01:00","level":"INFO","msg":"stream: closing","id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:51.399142+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-31T12:11:51.399824+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-31T12:11:52.22058+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-31T12:11:52.493879+01:00","level":"INFO","msg":"handler: closed","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:52.493892+01:00","level":"INFO","msg":"sender: closed","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:52.493894+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"bhzlyvq1"}
+{"time":"2024-12-31T12:11:52.494273+01:00","level":"INFO","msg":"stream: closed","id":"bhzlyvq1"}

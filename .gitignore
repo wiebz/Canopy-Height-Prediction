@@ -17,3 +17,5 @@ satellite_data/
 models/
 predictions/
 wandb/
+
+backup-repo.git/

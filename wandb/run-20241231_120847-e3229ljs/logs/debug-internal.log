@@ -1,0 +1,16 @@
+{"time":"2024-12-31T12:08:48.009045+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-31T12:08:48.009088+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20241231_120847-e3229ljs/logs/debug-core.log"}
+{"time":"2024-12-31T12:08:48.119644+01:00","level":"INFO","msg":"created new stream","id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.119677+01:00","level":"INFO","msg":"stream: started","id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.119864+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.119893+01:00","level":"INFO","msg":"handler: started","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.119895+01:00","level":"INFO","msg":"sender: started","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.418123+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-31T12:08:48.894866+01:00","level":"INFO","msg":"stream: closing","id":"e3229ljs"}
+{"time":"2024-12-31T12:08:48.894902+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-31T12:08:48.895555+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-31T12:08:49.557327+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-31T12:08:49.827463+01:00","level":"INFO","msg":"handler: closed","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:49.827483+01:00","level":"INFO","msg":"sender: closed","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:49.827475+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"e3229ljs"}
+{"time":"2024-12-31T12:08:49.827855+01:00","level":"INFO","msg":"stream: closed","id":"e3229ljs"}

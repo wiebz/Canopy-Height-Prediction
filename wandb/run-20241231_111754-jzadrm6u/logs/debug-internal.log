@@ -1,0 +1,16 @@
+{"time":"2024-12-31T11:17:54.955618+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-31T11:17:54.95567+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20241231_111754-jzadrm6u/logs/debug-core.log"}
+{"time":"2024-12-31T11:17:55.370729+01:00","level":"INFO","msg":"created new stream","id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.37078+01:00","level":"INFO","msg":"stream: started","id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.370809+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.370963+01:00","level":"INFO","msg":"handler: started","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.370964+01:00","level":"INFO","msg":"sender: started","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.671916+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-31T11:17:55.770188+01:00","level":"INFO","msg":"stream: closing","id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:55.770243+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-31T11:17:55.77078+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-31T11:17:56.879205+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-31T11:17:57.143818+01:00","level":"INFO","msg":"handler: closed","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:57.143835+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:57.143893+01:00","level":"INFO","msg":"sender: closed","stream_id":"jzadrm6u"}
+{"time":"2024-12-31T11:17:57.144217+01:00","level":"INFO","msg":"stream: closed","id":"jzadrm6u"}

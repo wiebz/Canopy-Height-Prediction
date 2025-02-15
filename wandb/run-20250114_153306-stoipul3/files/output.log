@@ -1,0 +1,19 @@
+Using loss: l2.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpca6xy4fn.
+gefundener dataset Path: /Users/wiebkezink/Documents/Uni Münster/MA/dataset
+Loading /dataset dataset from /Users/wiebkezink/Documents/Uni Münster/MA/dataset.
+Computed weighting 10.0-quantile-lower bound: 0.6454545454545455.
+Length of train and val splits: 5, 3.
+New length of train and val splits: 5, 3.
+Using 0 workers.
+Loading model - reinit: True | path: None specified.
+Using architecture unet.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpca6xy4fn.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 109, in <module>
+    runner.run()
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 856, in run
+    self.train()  # Train the model
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 714, in train
+    self.logger.info(f"Training model {i+1}/{self.ensemble_size} in the ensemble.")
+AttributeError: 'Runner' object has no attribute 'logger'

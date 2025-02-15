@@ -1,0 +1,18 @@
+{"time":"2025-01-17T13:03:59.185471+01:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2025-01-17T13:03:59.185556+01:00","level":"INFO","msg":"created symlink","path":"/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/wandb/run-20250117_130359-8n13xile/logs/debug-core.log"}
+{"time":"2025-01-17T13:03:59.292376+01:00","level":"INFO","msg":"created new stream","id":"8n13xile"}
+{"time":"2025-01-17T13:03:59.292414+01:00","level":"INFO","msg":"stream: started","id":"8n13xile"}
+{"time":"2025-01-17T13:03:59.292435+01:00","level":"INFO","msg":"sender: started","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:03:59.292444+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:03:59.29247+01:00","level":"INFO","msg":"handler: started","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:03:59.599953+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-17T13:06:22.130304+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-17T13:06:22.130909+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-17T13:06:23.13185+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpqumkr9au/trained_model.pt","runtime_seconds":0.641959167,"progress":"1.4MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-17T13:07:23.253505+01:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading tmpqumkr9au/trained_model.pt","runtime_seconds":28.667140958,"progress":"116.2MB/124.5MB"}],"total_operations":1}}
+{"time":"2025-01-17T13:07:25.965928+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-17T13:07:27.431188+01:00","level":"INFO","msg":"stream: closing","id":"8n13xile"}
+{"time":"2025-01-17T13:07:27.431234+01:00","level":"INFO","msg":"handler: closed","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:07:27.431258+01:00","level":"INFO","msg":"sender: closed","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:07:27.431249+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"8n13xile"}
+{"time":"2025-01-17T13:07:27.43147+01:00","level":"INFO","msg":"stream: closed","id":"8n13xile"}

@@ -1,0 +1,13 @@
+Using loss: l2.
+Using temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpbsxlwy5l.
+Removed temporary directory /var/folders/9b/_dhnw9_17kgb24l4cq75nq9h0000gn/T/tmpbsxlwy5l.
+Traceback (most recent call last):
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/main.py", line 132, in <module>
+    runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 116, in __init__
+    self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['l1', 'l2']}
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 116, in <dictcomp>
+    self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['l1', 'l2']}
+  File "/Users/wiebkezink/Documents/Uni Münster/MA/Canopy-Height-Prediction/training/runner.py", line 613, in get_loss
+    from .losses.l1_loss import L1Loss
+ImportError: attempted relative import with no known parent package

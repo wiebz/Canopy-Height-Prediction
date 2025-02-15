@@ -5,6 +5,9 @@ import os
 import numpy as np
 from tqdm.auto import tqdm
 import sys
+# Add the project's root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(project_root)
 # Assuming PreprocessedSatelliteDataset is defined in your project
 from training.config import PreprocessedSatelliteDataset
 from training.runner import Runner

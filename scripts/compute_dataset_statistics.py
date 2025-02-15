@@ -2,8 +2,13 @@ import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from PIL import Image
+import sys
 import os
 import numpy as np
+
+# Add the project's root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(project_root)
 
 from training.config import PreprocessedSatelliteDataset
 from training.runner import Runner
@@ -11,6 +16,9 @@ from training.runner import Runner
 from tqdm.auto import tqdm
 
 def compute_mean_std(dataset, split):
+
+    #rootPath = Runner.get_dataset_root(dataset_name=dataset)
+    #rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
     splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
     rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
 
@@ -64,8 +72,19 @@ mean, std = compute_mean_std(dataset=dataset, split=split)
 print(f'Mean: {mean}')
 print(f'Std: {std}')
 
+
+# Define the results directory
+results_dir = './results'
+os.makedirs(results_dir, exist_ok=True)
+
+# Define the dump path
+dump_path = os.path.join(results_dir, f'{dataset}_{split}_mean_std.txt')
+
+print(f"Saving statistics to: {dump_path}")
+
+
 # Dump the mean and std to a file in the current working directory
-dump_path = os.path.join(os.getcwd(), f'{dataset}_{split}_mean_std.txt')
+#dump_path = os.path.join(os.getcwd(), f'{dataset}_{split}_mean_std.txt') # keine Schreibrechte im scripts folder
 with open(dump_path, 'w') as f:
     f.write(f'Mean: {mean}\n')
     f.write(f'Std: {std}\n')
