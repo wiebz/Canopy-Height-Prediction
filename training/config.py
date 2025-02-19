@@ -9,25 +9,25 @@ from torch.utils.data.dataloader import default_collate
 import sys
 
 means = {
-    'sentinel_pauls_paper': (7350.2964, 8265.4316, 5197.9922, 4661.1250,  743.4734, 1063.2332,
+    'satellite_data': (7350.2964, 8265.4316, 5197.9922, 4661.1250,  743.4734, 1063.2332,
         1328.1122, 1657.2146, 2194.5916, 2415.3865, 2473.2197, 2572.5078,
-        2590.8245, 2032.7953),    # Not the true values, change for your dataset
+        2590.8245, 2032.7953),
 }
 
 stds = {
-    'sentinel_pauls_paper': (847.7974, 897.7203, 928.9338, 874.8210, 176.5845, 211.8331, 279.8626,
-        279.1518, 334.1505, 371.3719, 395.3250, 387.0693, 370.0272, 339.1393),  # Not the true values, change for your dataset
+    'satellite_data': (847.7974, 897.7203, 928.9338, 874.8210, 176.5845, 211.8331, 279.8626,
+        279.1518, 334.1505, 371.3719, 395.3250, 387.0693, 370.0272, 339.1393),
 }
 
 percentiles = {
-    'sentinel_pauls_paper': {
+    'satellite_data': {
         1: (-8956.0, -8706.0, -13676.0, -13721.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         2: (-7930.0, -7629.0, -12630.0, -12847.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         5: (-6502.0, -6262.0, -11293.0, -11611.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         95: (26317.0, 25280.0, 21480.0, 22595.0, 15959.0, 16047.0, 15919.0, 15811.0, 15795.0, 15767.0, 15751.0, 15705.0, 12344.0, 13236.0),
         98: (27685.0, 26830.0, 23002.0, 24265.0, 16231.0, 16143.0, 15945.0, 15891.0, 15824.0, 15807.0, 15896.0, 15729.0, 13504.0, 14253.0),
         99: (28788.0, 27897.0, 24213.0, 25487.0, 16403.0, 16208.0, 16080.0, 16102.0, 15924.0, 15976.0, 16000.0, 15818.0, 13813.0, 15047.0),
-    }  # Not the true values, change for your dataset
+    }
 }
 
 class FixValDataset(Dataset):
@@ -37,7 +37,8 @@ class FixValDataset(Dataset):
     def __init__(self, data_path, dataframe, image_transforms=None):
         self.data_path = data_path
         self.df = pd.read_csv(dataframe, index_col=False)
-        self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, x)))
+        #self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, x)))
+        self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples/', x)))
         self.image_transforms = image_transforms
 
     def __len__(self):
@@ -78,7 +79,8 @@ class PreprocessedSatelliteDataset(Dataset):
 
         #self.files = list(df["paths"].apply(lambda x: os.path.join(data_path, x)))
         self.df = df # neu , warum?
-        self.files = list(df["path"].apply(lambda x: os.path.join(data_path, x)))
+        #self.files = list(df["path"].apply(lambda x: os.path.join(data_path, x)))
+        self.files = list(self.df["path"].apply(lambda x: os.path.join(data_path, '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples/', x)))
 
 
         if use_weighted_sampler not in [False, None]:

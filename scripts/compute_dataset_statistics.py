@@ -19,7 +19,7 @@ def compute_mean_std(dataset, split):
 
     #rootPath = Runner.get_dataset_root(dataset_name=dataset)
     #rootPath = '/Users/wiebkezink/Documents/Uni Münster/MA/dataset'
-    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
+    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map/satellite_data'
     rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
 
     print(f"Resolved dataset path: {rootPath}") # Debugging
@@ -63,7 +63,7 @@ def compute_mean_std(dataset, split):
     return mean, std
 
 # Load the dataset
-dataset = 'sentinel_pauls_paper'
+dataset = 'satellite_data'
 split = 'train'
 
 

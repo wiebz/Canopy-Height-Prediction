@@ -1,4 +1,3 @@
-
 import getpass
 import os
 import shutil
@@ -9,7 +8,7 @@ import warnings
 from contextlib import contextmanager
 
 import wandb
-
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from runner import Runner
 from utilities import GeneralUtility
 
@@ -19,39 +18,40 @@ debug = "--debug" in sys.argv
 
 defaults = dict(
     # Model save directory
-    model_save_dir="./models",
+    model_save_dir="./models/trained/",  # Train models go here
 
     # System
-    seed=1, # bei ensemble rausnehmen!!
+    seed=1,
+    n_iterations=50,
+    log_freq=25,
 
     # Data
-    dataset='', #ai4forest_debug
+    dataset='satellite_data', #ai4forest_debug 'satellite_data'
     batch_size=16,
 
     # Architecture
-    arch='unet',  # Defaults to unet
-    backbone='resnet50',  # Defaults to resnet50
+    arch='unet',
+    backbone='resnet50',
     use_pretrained_model=False,
 
     # Model variant specifics
-    variant='baseline', # 'ensemble', 'baseline'
+    model_variant='ensemble', # 'ensemble', 'baseline', 'gaussian', 'quantiles'
     ensemble_size=3,
-    loss_name='l2',  # Defaults to shift_l1
+    quantiles=[0.1, 0.5, 0.9],
+    loss_name='l2', #'pinball', #'gaussian'
 
     # Optimization
-    optim='AdamW',  # Defaults to AdamW
-    n_iterations=50000, #100, 25000
-    log_freq=2000,
+    optim='AdamW',
     initial_lr=1e-3,
     weight_decay=1e-2,
-    use_standardization=False, #default: False
+    use_standardization=False,
     use_augmentation=False,
     use_label_rescaling=False,
 
     # Efficiency
     fp16=False,
     use_memmap=False,
-    num_workers_per_gpu=8,   # Defaults to 8
+    num_workers_per_gpu=8,
 
     # Other
     use_weighted_sampler='g10',
@@ -59,10 +59,10 @@ defaults = dict(
     use_swa=False,
     use_mixup=False,
     use_grad_clipping=False,
-    use_input_clipping=False,   # Must be in [False, None, 1, 2, 5]
+    use_input_clipping=False,
     n_lr_cycles=0,
     cyclic_mode='triangular2',
-    )
+)
 
 print(f"Defaults: {defaults}")
 
@@ -76,13 +76,11 @@ if not debug:
 defaults['computer'] = socket.gethostname()
 print(f"Defaults: {defaults}")
 
-
-
 # Configure wandb logging
 wandb.init(
     config=defaults,
-    project='base-001',  # automatically changed in sweep
-    entity=None,  # automatically changed in sweep
+    project='base-001',
+    entity=None,
 )
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
@@ -111,36 +109,49 @@ def tempdir():
         except IOError:
             sys.stderr.write('Failed to clean up temp dir {}'.format(path))
 
-
 with tempdir() as tmp_dir:
-    # Check if we are running on the GCP cluster, if so, mark as potentially preempted
+    # Check if we are running on the GCP cluster
     is_htc = 'htc-' in os.uname().nodename
     is_gcp = 'gpu' in os.uname().nodename and not is_htc
     if is_gcp:
         print('Running on GCP, marking as preemptable.')
-        wandb.mark_preempting()  # Note: This potentially overwrites the config when a run is resumed -> problems with tmp_dir
+        wandb.mark_preempting()
 
     runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
     runner.run()
 
     # Save the trained ensemble models
-    if config.variant == 'ensemble':
+    trained_model_dir = config.get('model_save_dir', './models/trained/')
+    os.makedirs(trained_model_dir, exist_ok=True)
+
+    if config.model_variant == 'ensemble':
         for idx, model_path in enumerate(runner.model_paths['ensemble']):
-            permanent_path = os.path.join(config.get('model_save_dir', './models'), f'test_ensemble_model_{idx}.pt')
-            shutil.copy(model_path, permanent_path)
-            print(f"Saved ensemble model {idx+1} to {permanent_path}")
+            save_path = os.path.join(trained_model_dir, f'ensemble_model_{idx}.pt')
+            shutil.copy(model_path, save_path)
+            print(f"✅ Saved ensemble model {idx+1} to {save_path}")
     
     else:
-        variant = config.variant
-        model_path = runner.model_paths[f'{variant}']
-        permanent_path = os.path.join(config.get('model_save_dir', './models'), f'{variant}_model.pt')
-        shutil.copy(model_path, permanent_path)
-        print(f"Saved {variant} model to {permanent_path}")
+        model_variant = config.model_variant
+        model_path = runner.model_paths[f'{model_variant}']
+        save_path = os.path.join(trained_model_dir, f'{model_variant}_model.pt')
+        shutil.copy(model_path, save_path)
+        print(f"✅ Saved {model_variant} model to {save_path}")
 
         # Close wandb run
         wandb_dir_path = wandb.run.dir
         wandb.join()
-    
+
         # Delete the local files
         if os.path.exists(wandb_dir_path):
             shutil.rmtree(wandb_dir_path)
+
+    # Move Trained Models to Prediction Directory
+    prediction_model_dir = "./models/prediction/"
+    os.makedirs(prediction_model_dir, exist_ok=True)
+
+    for model_filename in os.listdir(trained_model_dir):
+        src_path = os.path.join(trained_model_dir, model_filename)
+        dst_path = os.path.join(prediction_model_dir, model_filename)
+        shutil.copy(src_path, dst_path)
+
+    print("🚀 All trained models copied to 'models/prediction/' for inference.")

@@ -69,10 +69,10 @@ class Runner:
 
 
         # Variant setting
-        self.variant = self.config.get('variant', 'baseline')
+        self.model_variant = self.config.get('model_variant', 'baseline')
         
         # Ensemble settings
-        if self.variant == 'ensemble':
+        if self.model_variant == 'ensemble':
             self.ensemble_size = self.config.get('ensemble_size', 5)  # Für Ensemble
 
         # Set a couple useful variables
@@ -172,7 +172,9 @@ class Runner:
             rootPath = f"{root}{dataset_name}"
             if os.path.isdir(rootPath):
                 break
-        
+
+
+        """
         is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
         is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
         sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")
@@ -218,6 +220,7 @@ class Runner:
                 if wait_it == 360:
                     # Waited 1 hour, this should be done by now, check for errors
                     raise Exception("Waiting time too long.")
+        """
         
         return rootPath
 
@@ -491,14 +494,58 @@ class Runner:
         model_save_dir = self.config.get('model_save_dir', './models')
         os.makedirs(model_save_dir, exist_ok=True)
         """
-
+        """
         # Only save models in their non-module version, to avoid problems when loading
         try:
             model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+
+            # Save model weights + config in a dict
+            metadata = {
+                "state_dict": model_state_dict,
+                "config": dict(self.config)  # Convert config to dict before saving
+            }
+            
+            torch.save(metadata, fPath)  # Save both model weights and config
+
+            # ✅ Log config explicitly in WandB
+            if sync:
+                wandb.save(fPath)  # Save model file
+                wandb.config.update(metadata["config"], allow_val_change=True)  # Update WandB config
+        """
+
+        try:
+            # Get model state dict
+            model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+
+            # Convert config to a dictionary safely
+            #config_dict = dict(self.config) if isinstance(self.config, dict) else self.config.to_dict()
+            config_dict = vars(self.config) if hasattr(self.config, '__dict__') else dict(self.config)
+
+            # Save model with metadata
+            model_data = {
+                "state_dict": model_state_dict,
+                "config": config_dict,  # Save config inside the file!
+                "model_variant": self.model_variant,
+                "seed": self.seed
+            }
+
+            torch.save(model_data, fPath)  # Save full model data
+
+            # ✅ Log config explicitly in WandB if syncing
+            if sync:
+                wandb.save(fPath)  # Save model file to WandB
+                
+                # Ensure config update only when necessary
+                for key, value in config_dict.items():
+                    if key not in wandb.config:  
+                        wandb.config[key] = value  # Update WandB config safely
+
+            """ old
             torch.save(model_state_dict, fPath)  # Temporary save
 
             if sync:
                 wandb.save(fPath)
+            """
 
             print(f"✅ Model successfully saved to: {fPath}")
             
@@ -790,7 +837,7 @@ class Runner:
     def run(self):
         """Controls the execution of the script."""
         # We start training from scratch
-        if not self.variant == 'ensemble': 
+        if not self.model_variant == 'ensemble': 
             self.set_seed(seed=self.seed)  # Set the seed
         loaders = self.get_dataloaders()
         self.loader['train'], self.loader['val'], self.loader['fix_val'] = loaders
@@ -798,11 +845,11 @@ class Runner:
 
         self.define_optimizer_scheduler()  # This was moved before define_strategy to have the optimizer available
 
-        if self.variant == 'ensemble':
+        if self.model_variant == 'ensemble':
             self.train_ensemble()  # Train the ensemble model
 
         else:
             self.train()
             # Save the trained model and upload it to wandb
-            model_path = self.save_model(f'{self.variant}', sync=True)  # Speichere das Modell
-            self.model_paths[f'{self.variant}'] = model_path
+            model_path = self.save_model(f'{self.model_variant}', sync=True)  # Speichere das Modell
+            self.model_paths[f'{self.model_variant}'] = model_path

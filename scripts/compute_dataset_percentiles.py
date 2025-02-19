@@ -22,7 +22,7 @@ def update_extremes(values, extremes, num_extremes, largest=True):
 
 def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4):
     # Set up dataset and DataLoader
-    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map'
+    splitPath = '/home/ubuntu/work/saved_data/Global-Canopy-Height-Map/satellite_data'
     rootPath = '/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples'
     print(f"Resolved dataset path: {rootPath}") # Debugging
 
@@ -77,8 +77,17 @@ def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4)
             else:
                 percentile_values[channel][percentile] = extremes[channel][percentile].max().item()
 
+    # Define the results directory
+    results_dir = './results'
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Define the dump path
+    dump_path = os.path.join(results_dir, f'{dataset}_{split}_percentiles.txt')
+
+    print(f"Saving statistics to: {dump_path}")
+
     # Save results
-    dump_path = os.path.join(os.getcwd(), f'{dataset_name}_{split}_percentiles.txt')
+    #dump_path = os.path.join(os.getcwd(), f'{dataset_name}_{split}_percentiles.txt')
     with open(dump_path, 'w') as f:
         for percentile in percentiles:
             percentile_values_for_all_channels = tuple(percentile_values[channel][percentile] for channel in percentile_values)
@@ -89,6 +98,6 @@ def compute_percentiles(dataset_name, split, percentiles, num_workers_default=4)
 
 # Usage example
 percentiles = [1, 2, 5, 95, 98, 99]
-dataset_name = 'sentinel_pauls_paper'
+dataset_name = 'satellite_data'
 split = 'train'
 percentile_values = compute_percentiles(dataset_name, split, percentiles)

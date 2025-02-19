@@ -23,10 +23,10 @@ print("\n✅ Columns in CSV:", data.columns)
 assert 'path' in data.columns, "Error: CSV must have a 'path' column."
 assert 'latitudes' in data.columns and 'longitudes' in data.columns, "Error: CSV must have 'latitudes' and 'longitudes' columns for geo splitting."
 
-# Prepend base path to 'path' column (only if needed)
-base_path = "/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples/"
-if not data['path'].iloc[0].startswith(base_path):  # Prevent duplication
-    data['path'] = base_path + data['path']
+# # Prepend base path to 'path' column (only if needed)
+# base_path = "/home/ubuntu/work/satellite_data/sentinel_pauls_paper/samples/"
+# if not data['path'].iloc[0].startswith(base_path):  # Prevent duplication
+#     data['path'] = base_path + data['path']
 
 print("\n✅ Updated file paths:")
 print(data['path'].head())
@@ -109,10 +109,22 @@ if USE_FRACTION:
 else:
     splits = split_data_torch(dataset, sample_counts=sample_counts, generator=generator)
 
+# # Save split datasets to CSV
+# data_subset.iloc[splits['train'].indices].to_csv('train.csv', index=False)
+# data_subset.iloc[splits['val'].indices].to_csv('val.csv', index=False)
+# data_subset.iloc[splits['fix_val'].indices].to_csv('fix_val.csv', index=False)
+
+
+# print("\n✅ Data successfully saved to train.csv, val.csv, and fix_val.csv.")
+
+
+# Create the directory if it does not exist
+output_dir = "satellite_data"
+os.makedirs(output_dir, exist_ok=True)
+
 # Save split datasets to CSV
-data_subset.iloc[splits['train'].indices].to_csv('train.csv', index=False)
-data_subset.iloc[splits['val'].indices].to_csv('val.csv', index=False)
-data_subset.iloc[splits['fix_val'].indices].to_csv('fix_val.csv', index=False)
+data_subset.iloc[splits['train'].indices].to_csv(os.path.join(output_dir, 'train.csv'), index=False)
+data_subset.iloc[splits['val'].indices].to_csv(os.path.join(output_dir, 'val.csv'), index=False)
+data_subset.iloc[splits['fix_val'].indices].to_csv(os.path.join(output_dir, 'fix_val.csv'), index=False)
 
-
-print("\n✅ Data successfully saved to train.csv, val.csv, and fix_val.csv.")
+print("\n✅ Data successfully saved to satellite_data/train.csv, satellite_data/val.csv, and satellite_data/fix_val.csv.")
