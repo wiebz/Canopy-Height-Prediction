@@ -22,8 +22,8 @@ defaults = dict(
 
     # System
     seed=1,
-    n_iterations=50,
-    log_freq=25,
+    n_iterations=5000,
+    log_freq=500,
 
     # Data
     dataset='satellite_data', #ai4forest_debug 'satellite_data'
@@ -35,7 +35,7 @@ defaults = dict(
     use_pretrained_model=False,
 
     # Model variant specifics
-    model_variant='ensemble', # 'ensemble', 'baseline', 'gaussian', 'quantiles'
+    model_variant='baseline', # 'ensemble', 'baseline', 'gaussian', 'quantiles'
     ensemble_size=3,
     quantiles=[0.1, 0.5, 0.9],
     loss_name='l2', #'pinball', #'gaussian'
@@ -79,7 +79,7 @@ print(f"Defaults: {defaults}")
 # Configure wandb logging
 wandb.init(
     config=defaults,
-    project='base-001',
+    project='ensemble-001',
     entity=None,
 )
 config = wandb.config

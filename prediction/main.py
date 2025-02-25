@@ -1,7 +1,7 @@
 import os
 import sys
 import wandb
-from config import DATA_PATH, CSV_FILE, MODEL_PATHS, BATCH_SIZE, NUM_WORKERS, MODEL_VARIANT, DEVICE, DEBUG_MODE
+from config import DATA_PATH, CSV_FILE, MODEL_PATHS, BATCH_SIZE, NUM_WORKERS, MODEL_VARIANT, DEVICE, DEBUG_MODE, LOG_TO_WANDB
 from predict import Predictor
 from prediction_utils import get_dataloader
 
@@ -11,24 +11,27 @@ if __name__ == "__main__":
     print("🚀 Starting prediction pipeline...")
 
     # Initialize WandB
-    wandb.init(
-        project="fixval-predictions",
-        name="fixval_run",  # Set a unique run name
-        config={
-            "model_variant": MODEL_VARIANT,  # Example metadata
-            "batch_size": BATCH_SIZE,
-            "device": DEVICE,
-        }
-    )
-
-    print("✅ WandB initialized successfully!")
+    if LOG_TO_WANDB:
+        wandb.init(
+            mode="offline",  # Add this to prevent network calls
+            project="fixval-predictions",
+            #name="fixval_run",  # Set a unique run name
+            config={
+                "model_variant": MODEL_VARIANT,  # Example metadata
+                "batch_size": BATCH_SIZE,
+                "device": DEVICE,
+            },
+            settings=wandb.Settings(init_timeout=180)
+        )
+        print("✅ WandB initialized successfully!")
 
     
     # ✅ Load dataset
     dataloader = get_dataloader(DATA_PATH, CSV_FILE, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
     # ✅ Initialize Predictor
-    predictor = Predictor(model_paths=MODEL_PATHS)
+    #predictor = Predictor(model_paths=MODEL_PATHS)
+    predictor = Predictor(model_paths=MODEL_PATHS, log_to_wandb=LOG_TO_WANDB)
 
     # ✅ Select prediction function dynamically
     #model_variant = predictor.configs[0].get("model_variant")#, "baseline")
@@ -39,14 +42,14 @@ if __name__ == "__main__":
     if DEBUG_MODE:
         limited_data = []
         for i, batch in enumerate(dataloader):
-            if i >= 20:  # Process only 20 batches
+            if i >= 100:  # Process only 20 batches
                 break
             limited_data.append(batch)
         dataloader = limited_data  # Replace full dataloader with limited data
 
         print(f"🛠 DEBUG MODE: Processing only {len(dataloader)} batches!")
 
-
+    """
     if model_variant == "quantile_regression":
         predictions = predictor.predict_quantiles(dataloader)
     elif model_variant == "gaussian_loss":
@@ -56,7 +59,9 @@ if __name__ == "__main__":
         predictions = predictor.predict_ensemble(dataloader)
     else:
         predictions = predictor.predict_baseline(dataloader)  # Default = baseline
-
+    """
+    # ✅ Run prediction
+    predictions = predictor.predict(dataloader, model_variant)
 
     # ✅ Add debug print
     if DEBUG_MODE: print(f"DEBUG: Type of predictions after prediction = {type(predictions)}")

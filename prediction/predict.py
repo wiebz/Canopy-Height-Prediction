@@ -3,6 +3,7 @@ import json
 import csv
 import torch
 import numpy as np
+import gc
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -16,6 +17,9 @@ from prediction.prediction_utils import get_dataloader
 from prediction.fixval_visualization import get_input_output_visualization
 import wandb
 
+BATCH_SIZE = 1
+CHUNK_SIZE = 20  # Save after every 100 samples
+
 
 class Predictor:
     def __init__(self, model_paths, device=DEVICE, log_to_wandb=True):
@@ -24,6 +28,7 @@ class Predictor:
         self.models = []
         self.configs = []
         self.log_to_wandb = log_to_wandb
+        self.ensemble_size = 0  # Only relevant for ensemble models
   
         for model_path in model_paths:
             if MODEL_VARIANT in model_path and model_path.endswith(".pt"):
@@ -44,8 +49,6 @@ class Predictor:
                     config = {}
                     model_variant = "MISSING"
                 
-                #config = model_data["config"]
-                #model_variant = config.get("model_variant", "baseline")
 
                 model = self._initialize_model(config)
                 model.load_state_dict(model_state_dict)
@@ -54,12 +57,15 @@ class Predictor:
 
                 self.models.append((model, model_variant))
                 self.configs.append(config)
+                if model_variant == "ensemble":
+                    self.ensemble_size += 1
 
                 print(f"🔍 Loaded model from {model_path} with variant: {model_variant}")
 
 
-        self.ensemble_size = len(self.models)
-        print(f"✅ Loaded {self.ensemble_size} models for prediction.")
+        if self.ensemble_size > 0:
+            print(f"✅ Loaded {self.ensemble_size} models for ensemble prediction.")
+
 
     def _initialize_model(self, config):
         """Initializes a model based on the saved config."""
@@ -87,371 +93,113 @@ class Predictor:
             in_channels=14,
             classes=1,
         )
-
-    # 🔹 Prediction functions
-    def predict_baseline(self, dataloader):
-        """Predicts using a single baseline model."""
-        print("🔍 Predicting FixVal dataset (Baseline Model)...")
-
-        logging_dict = {}
-
-        for x_input, file_names in tqdm(dataloader, desc="Processing FixVal Data"):
-            x_input = x_input.to(self.device, non_blocking=True)
-
-            with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-                #mean_prediction = self.models[0][0](x_input).cpu().numpy()
-                predictions = np.array([model(x_input).cpu().numpy() for model, _ in self.models])
-                if DEBUG_MODE: print(f"DEBUG: Shape of prediction array: {predictions.shape}")
-
-                # Compute ensemble statistics
-                mean_prediction = np.mean(predictions, axis=0)
-
-            # for i, file_name in enumerate(file_names):
-            #     logging_dict[f"fixval/mean_{file_name}"] = mean_prediction[i].tolist()
-            for i, file_name in enumerate(file_names):
-                prediction_entry = {
-                    "file_name": os.path.basename(file_name),
-                    "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
-                    "variant": self.models.model_variant,  # Store model variant type
-                    "outputs": {},  # Flexible dictionary for different variants
-                }
-
-                prediction_entry["outputs"]["mean"] = mean_prediction[i].tolist()
-
-        """
-        output_file = os.path.join(OUTPUT_DIR, "fixval_baseline_predictions.json")
-        with open(output_file, "w") as f:
-            json.dump(logging_dict, f, indent=4)
-        print(f"✅ Baseline predictions saved to {output_file}")
-        """
-
-        return logging_dict
     
 
-    def predict_ensemble(self, dataloader):
-        """Predicts using an ensemble of models."""
-        logging_dict = {"predictions": []}
+    def predict(self, dataloader, model_variant):
+        """Handles inference and processes model outputs efficiently."""
+        print(f"\n🚀 Starting prediction for {model_variant}...")
+        predictions_list = []
 
-        model, model_variant = self.models[0]  # Extract the single model and its variant
+        with torch.no_grad():
+            for step, (x_input, file_names) in enumerate(tqdm(dataloader, desc=f"Processing Data ({model_variant})")):
+                x_input = x_input.to(self.device, non_blocking=True)
+                batch_predictions = []
 
-        # for x_input, y_target, file_names in tqdm(dataloader, desc="Processing FixVal Data"):
-        for x_input, file_names in tqdm(dataloader, desc="Processing FixVal Data"):
-            x_input = x_input.to(self.device, non_blocking=True) # input image
-            #y_target = y_target.to(self.device, non_blocking=True)  # ground truth
+                if model_variant == "ensemble":
+                    for model, _ in self.models:
+                        pred = model(x_input).cpu().numpy()
+                        batch_predictions.append(pred)
+                    batch_predictions = np.array(batch_predictions)
 
-            with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-                predictions = np.array([model(x_input).cpu().numpy() for model, _ in self.models])
-                #print(f"DEBUG: Shape of prediction array: {predictions.shape}")
+                    # Compute ensemble statistics
+                    mean_prediction = np.mean(batch_predictions, axis=0)
+                    std_dev = np.std(batch_predictions, axis=0)
+                    safe_mean = np.where(mean_prediction == 0, np.nan, mean_prediction)
+                    var_coef = np.where(np.isnan(safe_mean), 0, std_dev / safe_mean)
+                    lower_bound = np.percentile(batch_predictions, 5, axis=0)
+                    upper_bound = np.percentile(batch_predictions, 95, axis=0)
+                
+                elif model_variant == "quantile_regression":
+                    model = self.models[0][0]
+                    predictions = model(x_input).cpu().numpy()
+                    quantiles = self.configs[0].get("quantiles", [0.05, 0.5, 0.95])
+                    prediction_outputs = {f"q{int(q*100)}": predictions[i, q_idx].tolist() for q_idx, q in enumerate(quantiles)}
 
-                # Compute ensemble statistics
-                mean_prediction = np.mean(predictions, axis=0)
-                std_dev = np.std(predictions, axis=0)
-                safe_mean = np.where(mean_prediction == 0, np.nan, mean_prediction)
-                var_coef = np.where(np.isnan(safe_mean), 0, std_dev / safe_mean)
-                lower_bound = np.percentile(predictions, 5, axis=0)
-                upper_bound = np.percentile(predictions, 95, axis=0)
-                #print(f"DEBUG: Shape of statistics: mean:{mean_prediction.shape}, std:{std_dev.shape}, var_coef:{var_coef.shape}, lower:{lower_bound.shape}, upper:{upper_bound.shape}")
+                elif model_variant == "gaussian_loss":
+                    model = self.models[0][0]
+                    predictions = model(x_input).cpu().numpy()
+                    mean_prediction = predictions[:, 0].tolist()
+                    variance_prediction = predictions[:, 1].tolist()
+                    std_dev = np.sqrt(predictions[:, 1]).tolist()
+                    prediction_outputs = {
+                        "mean": mean_prediction,
+                        "variance": variance_prediction,
+                        "std_dev": std_dev
+                    }
 
+                else:  # Baseline Model
+                    model = self.models[0][0]
+                    mean_prediction = model(x_input).cpu().numpy()
+                    std_dev = var_coef = lower_bound = upper_bound = None
+                    prediction_outputs = {"mean": mean_prediction.tolist()}
 
+                # Store predictions per sample
+                for i, file_name in enumerate(file_names):
+                    prediction_entry = {
+                        "file_name": os.path.basename(file_name),
+                        "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
+                        "variant": model_variant,
+                        "outputs": prediction_outputs if model_variant != "ensemble" else {
+                            "mean": mean_prediction[i].tolist(),
+                            "std_dev": std_dev[i].tolist() if std_dev is not None else None,
+                            "var_coef": var_coef[i].tolist() if var_coef is not None else None,
+                            "lower_bound": lower_bound[i].tolist() if lower_bound is not None else None,
+                            "upper_bound": upper_bound[i].tolist() if upper_bound is not None else None,
+                            "individual_predictions": batch_predictions[:, i].tolist()
+                        },
+                    }
+                    predictions_list.append(prediction_entry)
 
-            # with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-            #     predictions = []
-            #     for model, _ in self.models:
-            #         pred = model(x_input)
-            #         predictions.append(pred.cpu().numpy())
+                # Save every CHUNK_SIZE samples and reset the list
+                if len(predictions_list) >= CHUNK_SIZE:
+                    self.save_predictions(predictions_list, model_variant, intermediate=True)
+                    predictions_list = []  # Reset list to free memory
 
-            #     predictions = np.array(predictions)
+                del x_input, batch_predictions, mean_prediction, std_dev, var_coef, lower_bound, upper_bound
+                gc.collect()
+                torch.cuda.empty_cache()
 
-                # Compute ensemble statistics
-                # mean_prediction = np.mean(predictions, axis=0)
-                # std_dev = np.std(predictions, axis=0)
-                # lower_bound = np.percentile(predictions, 5, axis=0)
-                # upper_bound = np.percentile(predictions, 95, axis=0)
+        # Save final results
+        self.save_predictions(predictions_list, model_variant)
 
-            # # Store results
-            # for i, file_name in enumerate(file_names):
-            #     logging_dict["predictions"].append({
-            #         "file_name": file_name,
-            #         "input_image": x_input[i].cpu().numpy(),  # Store input image for visualization
-            #         "mean": mean_prediction[i, 0].tolist(),
-            #         "std": std_dev[i, 0].tolist(),
-            #         "var_coef": None, 
-            #         "lower_bound": lower_bound[i].tolist(),
-            #         "upper_bound": upper_bound[i].tolist(),
-            #         #"ground_truth": y_target[i].cpu().numpy().tolist(),  # Store ground truth
-            #         "variant": [variant for _, variant in self.models],
-            #     })
-            # Store results dynamically based on model output shape
-
-            for i, file_name in enumerate(file_names):
-                prediction_entry = {
-                    "file_name": os.path.basename(file_name),
-                    "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
-                    "variant": model_variant,  # Store model variant type
-                    "outputs": {},  # Flexible dictionary for different variants
-                }
-
-                prediction_entry["outputs"]["mean"] = mean_prediction[i].tolist()
-                prediction_entry["outputs"]["std_dev"] = std_dev[i].tolist()
-                prediction_entry["outputs"]["var_coef"] = var_coef[i].tolist()
-                prediction_entry["outputs"]["lower_bound"] = lower_bound[i].tolist()
-                prediction_entry["outputs"]["upper_bound"] = upper_bound[i].tolist()
-
-                # DEBUG if i == 1: print(f"File name of first image: {file_name}")
-
-
-                    
-            # for i, file_name in enumerate(file_names):
-            #     prediction_entry = {
-            #         "file_name": file_name,
-            #         "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
-            #         "outputs": mean_prediction[i].tolist(),  # Store all output channels in a single list
-            #         "std_dev": std_dev[i].tolist() if std_dev is not None else None,
-            #         "var_coef": var_coef[i].tolist() if var_coef is not None else None,
-            #         "lower_bound": lower_bound[i].tolist(),
-            #         "upper_bound": upper_bound[i].tolist(),
-            #         "variant": [variant for _, variant in self.models],
-            #     }
-
-                logging_dict["predictions"].append(prediction_entry)
-
-            """
-            # Store results
-            for i, file_name in enumerate(file_names):
-                safe_file_name = file_name[:50]  # Truncate to avoid excessive length
-                logging_dict[f"fixval/mean_{safe_file_name}"] = mean_prediction[i].tolist()
-                logging_dict[f"fixval/std_{safe_file_name}"] = std_dev[i].tolist()
-                logging_dict[f"fixval/lower_bound_{safe_file_name}"] = lower_bound[i].tolist()
-                logging_dict[f"fixval/upper_bound_{safe_file_name}"] = upper_bound[i].tolist()
-            """
-                #logging_dict[f"fixval/mean_{file_name}"] = mean_prediction[i].tolist()
-                #logging_dict[f"fixval/std_{file_name}"] = std_dev[i].tolist()
-                #logging_dict[f"fixval/lower_bound_{file_name}"] = lower_bound[i].tolist()
-                #logging_dict[f"fixval/upper_bound_{file_name}"] = upper_bound[i].tolist()
-
-        """
-        # ✅ Save results as JSON
-        print(f" Saving ensemble predictions...")
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        output_file = os.path.join(OUTPUT_DIR, "fixval_ensemble_predictions.json")
-        with open(output_file, "w") as f:
-            json.dump(logging_dict, f, indent=4)
-        print(f"✅ Ensemble predictions saved to {output_file}")
-        """
-
-        # Debugging: Print shape & example predictions
-        if DEBUG_MODE and "predictions" in logging_dict:
-            print(f"DEBUG: Type of predictions inside predict_ensemble = {type(logging_dict)}, Number of stored predictions = {len(logging_dict['predictions'])}")
-            
-            # Print first 3 entries to check structure
-            # Debugging: Print summary of first few predictions (without printing all values)
-            for i, entry in enumerate(logging_dict["predictions"][:3]):  # Limit to 3 entries
-                # Print only the first few values in each entry (truncate long arrays)
-                preview = [x[:2] if isinstance(x, (list, np.ndarray)) else x for x in entry]
-                print(f"DEBUG: Entry {i} has {len(entry)} elements. (Preview) → {preview}")
-
-        print(f"✅ Ensemble predictions completed. {len(logging_dict['predictions'])} entries processed.")
-
-        return logging_dict
-
-
-    def predict_quantiles(self, dataloader):
-        """Predicts using quantile regression models (flexible number of quantiles)."""
-        self.quantiles = self.configs[0].get("quantiles", [0.05, 0.5, 0.95])  # Dynamically set in training
-
-        print(f"🔍 Predicting FixVal dataset (Quantile Regression) with quantiles: {self.quantiles}...")
-
-        logging_dict = {"predictions": []}
-
-        model, model_variant = self.models[0]  # Extract the single model and its variant
-
-        for x_input, file_names in tqdm(dataloader, desc="Processing FixVal Data"):
-            x_input = x_input.to(self.device, non_blocking=True)
-
-            with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-                #mean_prediction = self.models[0][0](x_input).cpu().numpy()
-                predictions = np.array([model(x_input).cpu().numpy() for model, _ in self.models])
-                if DEBUG_MODE: print(f"DEBUG: Shape of prediction array: {predictions.shape}")
-
-            for i, file_name in enumerate(file_names):
-                prediction_entry = {
-                    "file_name": os.path.basename(file_name),
-                    "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
-                    "variant": model_variant,  # Store model variant type
-                    "outputs": {},  # Flexible dictionary for different variants
-                }
-
-                quantile_dict = {}
-                for q_idx, quantile in enumerate(self.quantiles):  # Dynamically extract quantiles
-                    quantile_dict[f"q{int(quantile*100)}"] = predictions[i, q_idx].tolist()
-                #prediction_entry["outputs"]["quantiles"] = quantile_dict
-                prediction_entry["outputs"] = quantile_dict
-
-                logging_dict["predictions"].append(prediction_entry)
-
-
-            # with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-            #     predictions = [model(x_input).cpu().numpy() for model, _ in self.models]
-            #     predictions = np.array(predictions)  # Shape: (models, batch, num_quantiles, H, W)
-
-            # quantile_means = np.mean(predictions, axis=0)  # Average over models
-
-            # for i, file_name in enumerate(file_names):
-            #     for q_idx, quantile in enumerate(self.quantiles):
-            #         logging_dict[f"fixval/q{int(quantile*100)}_{file_name}"] = quantile_means[i, q_idx].tolist()
-
-        """
-        output_file = os.path.join(OUTPUT_DIR, "fixval_quantile_predictions.json")
-        with open(output_file, "w") as f:
-            json.dump(logging_dict, f, indent=4)
-        print(f"✅ Quantile predictions saved to {output_file}")
-        """
-
-        print(f"✅ Quantile predictions completed. {len(logging_dict['predictions'])} entries saved.")
-
-        return logging_dict
+        return predictions_list
     
 
-    def predict_gaussian(self, dataloader):
-        """Predicts using Gaussian loss models (outputs mean & variance)."""
-        print("🔍 Predicting FixVal dataset (Gaussian Loss)...")
-
-        logging_dict = {"predictions": []}
-
-        model, model_variant = self.models[0]   # Extract the model and the model variant
-
-        for x_input, file_names in tqdm(dataloader, desc="Processing FixVal Data"):
-            x_input = x_input.to(self.device, non_blocking=True)
-
-            with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
-                predictions = model(x_input).cpu().numpy()
-                if DEBUG_MODE: print(f"DEBUG: Shape of prediction array: {predictions.shape}")  # Expect (batch, 2, H, W)
-
-                #predictions = np.array(predictions)  # Shape: (models, batch, 2, H, W)
-
-            # Store results per image
-            for i, file_name in enumerate(file_names):
-                prediction_entry = {
-                    "file_name": os.path.basename(file_name),
-                    "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
-                    "variant": model_variant,  # Store model variant type
-                    "outputs": {},  # Flexible dictionary for different variants
-                }
-
-                # ✅ Extract Gaussian outputs
-                mean_prediction = predictions[i, 0].squeeze().tolist()  # Mean prediction
-                variance_prediction = predictions[i, 1].squeeze().tolist()  # Variance prediction
-                std_dev = np.sqrt(predictions[i, 1]).tolist()  # Standard deviation
-
-                # Store Gaussian outputs
-                #prediction_entry["outputs"]["gaussian"] = {
-                prediction_entry["outputs"] = {
-                    "mean": mean_prediction,
-                    "variance": variance_prediction,
-                    "std_dev": std_dev,
-                }
-
-                logging_dict["predictions"].append(prediction_entry)
-
-                if DEBUG_MODE: print(f"DEBUG: Stored {logging_dict['predictions']['file_name']} | Mean Shape: {np.shape(mean_prediction)} | Variance Shape: {np.shape(variance_prediction)}")
-
-
-            # mean_prediction = predictions[:, :, 0, :, :]
-            # variance = predictions[:, :, 1, :, :]
-
-            # mean_mean = np.mean(mean_prediction, axis=0)
-            # mean_variance = np.mean(variance, axis=0)
-            # mean_std_dev = np.sqrt(mean_variance)  # Convert variance to std deviation
-
-            # for i, file_name in enumerate(file_names):
-            #     logging_dict[f"fixval/mean_{file_name}"] = mean_mean[i].tolist()
-            #     logging_dict[f"fixval/variance_{file_name}"] = mean_variance[i].tolist()
-            #     logging_dict[f"fixval/std_dev_{file_name}"] = mean_std_dev[i].tolist()
-
-        """
-        output_file = os.path.join(OUTPUT_DIR, "fixval_gaussian_predictions.json")
-        with open(output_file, "w") as f:
-            json.dump(logging_dict, f, indent=4)
-        print(f"✅ Gaussian predictions saved to {output_file}")
-        """
-
-        print(f"✅ Gaussian predictions completed. {len(logging_dict['predictions'])} entries saved.")
-    
-        return logging_dict
-
-    
-    def save_predictions(self, predictions, model_variant, save_json=True, save_csv=True, save_npz=False):
-        """
-        Saves predictions and uncertainty metrics in structured format.
-
-        :param predictions: Dictionary containing prediction data.
-        :param model_variant: Model variant name ('baseline', 'ensemble', 'quantiles', 'gaussian', etc.).
-        :param save_json: Whether to save as JSON (default: True).
-        :param save_csv: Whether to save as CSV (default: True).
-        :param save_npz: Whether to save as NPZ (default: False).
-        """
-
+    def save_predictions(self, predictions, model_variant, intermediate=False):
+        """Saves predictions in JSON and CSV formats, supports intermediate saving."""
         output_dir = "prediction_outputs/"
         os.makedirs(output_dir, exist_ok=True)
-
-        if not isinstance(predictions, dict):
-            raise ValueError(f"❌ Expected 'predictions' to be a dict, but got {type(predictions)} instead.")
-        
-        print(f"✅ Saving predictions for model variant: {model_variant}")
-
-
-        # 🔹 Save JSON
-        if save_json:
-            print(f"🛠 Start saving to JSON...")
-            json_file = os.path.join(output_dir, f"predictions_{model_variant}.json")
-            with open(json_file, "w") as f:
-                json.dump(predictions, f, indent=4)
-            print(f"✅ JSON saved: {json_file}")
-
-        # 🔹 Save CSV dynamically based on available keys
-        if save_csv:
-            print(f"🛠 Start saving to CSV...")
-            csv_file = os.path.join(output_dir, f"predictions_{model_variant}.csv")
-
-            # Extract all unique output keys dynamically
-            all_keys = set()
-            for pred in predictions["predictions"]:
-                all_keys.update(pred["outputs"].keys())  # Collect all output types
-
-            # Convert to a sorted list (optional: enforce a logical order)
-            #all_keys = sorted(list(all_keys))
-
-            # Set CSV header dynamically
-            header = ["File Name"] + list(all_keys) + ["Variant"]
-            write_header = not os.path.exists(csv_file)  # Only write header if file is new
-
-            with open(csv_file, mode="a", newline="") as f:
-                writer = csv.writer(f)
-
-                # Write header
-                if write_header:
-                    writer.writerow(header)
-
-                # Write data
-                for pred in predictions["predictions"]:
-                    row = [pred["file_name"]]
-
-                    # Extract outputs dynamically, handling missing values
-                    for key in all_keys:
-                        row.append(pred["outputs"].get(key, "N/A"))  # Default to "N/A" if key is missing
-
-                    row.append(pred["variant"])  # Append variant type
-
-                    writer.writerow(row)
-
-            print(f"✅ CSV saved: {csv_file}")
+        suffix = "_intermediate" if intermediate else ""
+        json_file = os.path.join(output_dir, f"predictions_{model_variant}{suffix}.json")
+        with open(json_file, "w") as f:
+            json.dump(predictions, f, indent=4)
+        print(f"✅ JSON saved: {json_file}")
 
         # 🔹 Save NPZ
-        if save_npz:
-            print(f"🛠 Start saving to NPZ...")
-            npz_file = os.path.join(output_dir, f"predictions_{model_variant}.npz")
-            np.savez_compressed(npz_file, predictions=predictions)
-            print(f"✅ NPZ saved: {npz_file}")
+        """
+        print(f"🛠 Start saving to NPZ...")
+        npz_file = os.path.join(output_dir, f"predictions_{model_variant}.npz")
+        np.savez_compressed(npz_file, predictions=predictions)
+        print(f"✅ NPZ saved: {npz_file}")
+        """
+
+
+    def log_to_wandb(self, step, predictions):
+        """Logs intermediate predictions to Weights & Biases in a memory-efficient manner."""
+        if self.log_to_wandb and wandb.run:
+            log_data = {f"step_{step}_sample_{i}": wandb.Image(pred["outputs"]["mean"]) for i, pred in enumerate(predictions[:3])}
+            wandb.log(log_data)
+            print(f"📡 Logged step {step} to WandB efficiently")
 
 
         
@@ -475,7 +223,6 @@ class Predictor:
         print(f"Start generating input-output visualizations...")
 
         # Load the visualization function
-        #viz_fn = get_input_output_visualization(rgb_channels=[6, 5, 4], process_variables=lambda x, _, y: (x, None, y))
         viz_fn = get_input_output_visualization(rgb_channels=[6, 5, 4])
 
         #for entry in predictions["predictions"]:
