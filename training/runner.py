@@ -67,13 +67,14 @@ class Runner:
             torch.cuda.device(self.device)
         torch.backends.cudnn.benchmark = True
 
-
         # Variant setting
         self.model_variant = self.config.get('model_variant', 'baseline')
         
         # Ensemble settings
         if self.model_variant == 'ensemble':
             self.ensemble_size = self.config.get('ensemble_size', 5)  # Für Ensemble
+        if self.model_variant == 'quantiles':
+            self.quantiles = self.config.get('quantiles', [0.1, 0.5, 0.9])
 
         # Set a couple useful variables
         self.seed = int(self.config.seed)
@@ -89,7 +90,7 @@ class Runner:
 
         # Variables to be set
         self.loader = {loader_type: None for loader_type in ['train', 'val']}
-        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber']} #'l1', 'l2'
+        self.loss_criteria = {loss_name: self.get_loss(loss_name=loss_name) for loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber', 'gaussian_loss', 'pinball_loss']} #'l1', 'l2'
         for threshold in [15, 20, 25, 30]:
             self.loss_criteria[f"l1_{threshold}"] = self.get_loss(loss_name=f"l1", threshold=threshold)
 
@@ -108,6 +109,8 @@ class Runner:
                                'l1': MeanMetric().to(device=self.device),
                                'l2': MeanMetric().to(device=self.device),
                                'huber': MeanMetric().to(device=self.device),
+                               'gaussian_loss': MeanMetric().to(device=self.device),
+                               'pinball_loss': MeanMetric().to(device=self.device),
                                }
                         for mode in ['train', 'val']}
 
@@ -172,55 +175,6 @@ class Runner:
             rootPath = f"{root}{dataset_name}"
             if os.path.isdir(rootPath):
                 break
-
-
-        """
-        is_htc = (root == '/home/htc/mzimmer/SCRATCH/') and 'htc-' in platform.uname().node
-        is_copyable = is_htc and ('_camera' in dataset_name or '_better_mountains' in dataset_name)
-        sys.stdout.write(f"Dataset {dataset_name} is copyable: {is_copyable}.\n")
-
-        if is_copyable:
-            # We copy the data to have it on locally attached hardware
-            local = '/scratch/local/'
-            if not os.path.isdir(os.path.join(local, 'mzimmer')): os.mkdir(os.path.join(local, 'mzimmer'))
-            local = local + 'mzimmer/'
-            localPath = f"{local}{dataset_name}"
-            inProcessFile = os.path.join(local, f"{dataset_name}-inprocess.lock")
-            doneFile = os.path.join(local, f"{dataset_name}-donefile.lock")
-
-            wait_it = 0
-            while True:
-                is_done = os.path.exists(doneFile) and os.path.isdir(f"{local}{dataset_name}")
-                is_busy = os.path.exists(inProcessFile)
-                if is_done:
-                    # Dataset exists locally, continue with the training
-                    rootPath = f"{local}{dataset_name}"
-                    print("Local data storage: Done file exists.")
-                    break
-                elif is_busy:
-                    # Wait for 10 seconds, then check again
-                    time.sleep(10)
-                    print("Local data storage: Is still busy - wait.")
-                    continue
-                else:
-                    # Create the inProcessFile
-                    open(inProcessFile, mode='a').close()
-
-                    # Copy the dataset
-                    print("Local data storage: Starts copying.")
-                    shutil.copytree(src=rootPath, dst=localPath)
-                    print("Local data storage: Copying done.")
-                    # Create the doneFile
-                    open(doneFile, mode='a').close()
-
-                    # Remove the inProcessFile
-                    os.remove(inProcessFile)
-
-                wait_it += 1
-                if wait_it == 360:
-                    # Waited 1 hour, this should be done by now, check for errors
-                    raise Exception("Waiting time too long.")
-        """
         
         return rootPath
 
@@ -236,6 +190,7 @@ class Runner:
         transformDict = {split: None for split in ['train', 'val']}
         base_transform = transforms.ToTensor()
         transforms_list = [base_transform]   # Convert to tensor (this changes the order of the channels)
+        """
         if self.config.use_standardization:
             assert self.config.use_input_clipping not in [False, None, 'None'], "Mutually exclusive options: use_standardization and use_input_clipping."
             assert self.config.dataset in meanDict.keys(), f"Mean of Dataset {self.config.dataset} not implemented."
@@ -258,6 +213,7 @@ class Runner:
             # Define the clipping transform over the channels, i.e. each channel is clipped individually using the bounds from percentileDict
             clipping_transform = transforms.Lambda(lambda x: torch.clamp(x, min=input_clipping_lower_bound, max=input_clipping_upper_bound))
             transforms_list.append(clipping_transform)
+        """
 
 
         transformDict['train'] = transforms.Compose(transforms_list)
@@ -326,13 +282,23 @@ class Runner:
             # Define the model
             arch = self.config.arch or 'unet'
             backbone = self.config.backbone or 'resnet50'
-            sys.stdout.write(f"Using architecture {arch}.\n")
+
+            if self.model_variant == "gaussian":
+                num_classes = 2  # Gaussian output: 2 channels #
+            elif self.model_variant == 'quantiles':
+                num_classes = len(self.quantiles)
+            else:
+                num_classes = 1
+
+            assert isinstance(num_classes, int) and num_classes > 0, "Error: num_classes must be a positive integer!"                
+            sys.stdout.write(f"Using architecture {arch} with {num_classes} output channels.\n")
+
             assert arch in ['unet', 'unetpp', 'manet', 'linknet', 'fpn', 'pspnet', 'pan', 'deeplabv3', 'deeplabv3p']
             network_config = {
                 "encoder_name": backbone,
                 "encoder_weights": None if not self.config.use_pretrained_model else 'imagenet',
                 "in_channels": 14,
-                "classes": 1,
+                "classes": num_classes,
             }
             if arch == 'unet':
                 model = smp.Unet(**network_config)
@@ -385,7 +351,7 @@ class Runner:
         return model
 
     def get_loss(self, loss_name: str, threshold: float = None):
-        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber'], f"Loss {loss_name} not implemented." #'l1', 'l2'
+        assert loss_name in ['shift_l1', 'shift_l2', 'shift_huber', 'l1', 'l2', 'huber', 'gaussian_loss', 'pinball_loss'], f"Loss {loss_name} not implemented." #'l1', 'l2'
         if threshold is not None:
             assert loss_name == 'l1', f"Threshold only implemented for l1 loss, not {loss_name}."
         # Dim 1 is the channel dimension, 0 is batch.
@@ -424,6 +390,13 @@ class Runner:
         elif loss_name == 'huber':
             from losses.huber_loss import HuberLoss
             loss = HuberLoss(ignore_value=0, pre_calculation_function=remove_sub_track, delta=3.0)
+        elif loss_name == 'gaussian_loss':
+            from losses.gaussian_loss import GaussianLoss
+            loss = GaussianLoss(ignore_value=0, pre_calculation_function=remove_sub_track)
+        elif loss_name == 'pinball_loss':
+            from losses.pinball_loss import PinballLoss
+            quantiles = self.config.get("quantiles", [0.1, 0.5, 0.9])  # Default: [0.1, 0.5, 0.9]
+            loss = PinballLoss(quantiles=quantiles, ignore_value=0, pre_calculation_function=remove_sub_track)
         
         loss = loss.to(device=self.device)
         return loss
@@ -431,17 +404,39 @@ class Runner:
     def get_visualization(self, viz_name: str, inputs, labels, outputs):
         assert viz_name in ['input_output', 'density_scatter_plot',
                             'boxplot'], f"Visualization {viz_name} not implemented."
+        
+        # 🛠 Ensure `outputs` is always 4D (B, C, H, W)
+        if outputs.dim() == 3:  # If shape is (B, H, W), add missing channel dimension
+            outputs = outputs.unsqueeze(1)  # (B, 1, H, W)
+
+        # 🛠 Extract correct outputs for Gaussian model
+        if self.model_variant == "gaussian":
+            outputs = outputs[:, 0, :, :]  # Extract only mean predictions → (B, H, W)
+            outputs = outputs.unsqueeze(1)  # Ensure it is always (B, 1, H, W)
+
+        # 🛠 Extract correct outputs for Quantile Regression model
+        elif self.model_variant == "quantiles":
+            num_quantiles = outputs.shape[1]  # Get number of quantiles (e.g., 3 for τ = [0.1, 0.5, 0.9])
+            median_index = num_quantiles // 2  # Index for the median quantile (τ = 0.5)
+            outputs = outputs[:, median_index, :, :]  # Extract median prediction (B, H, W)
+            outputs = outputs.unsqueeze(1)  # Ensure it is always (B, 1, H, W)
+
+
+        labels = labels.detach().clone()
+        
 
         # Detach and copy the labels and outputs, then undo the rescaling
-        labels, outputs = labels.detach().clone(), outputs.detach().clone()
+        #labels, outputs = labels.detach().clone(), outputs.detach().clone()
 
         # Undo the rescaling
         labels, outputs = labels * self.label_rescaling_factor, outputs * self.label_rescaling_factor
-
+        #print(f"DEBUG: outputs shape after rescaling in get_viz(): {outputs.shape}")
 
         def remove_sub_track_vis(inputs, labels, outputs):
             return inputs, labels.sum(
                 axis=1), outputs  # Same as remove_sub_track, but for visualization (i.e. has outputs as well)
+        
+        #print(f"DEBUG: outputs shape before passed to viz functions: {outputs.shape}")
 
         if viz_name == 'input_output':
             viz_fn = visualization.get_input_output_visualization(rgb_channels=[6, 5, 4],
@@ -479,6 +474,65 @@ class Runner:
     def save_model(self, model_identifier: str, sync: bool = False) -> str:
         """
         Saves the model's state_dict to a file.
+        """
+        fName = f"{model_identifier}.pt"
+        fPath = os.path.join(self.tmp_dir, fName)
+
+        try:
+            # ✅ Get model state dict
+            model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+
+            # ✅ Convert config to a dictionary safely
+            config_dict = vars(self.config) if hasattr(self.config, '__dict__') else dict(self.config)
+
+            # ✅ Add number of output classes (segmentation head)
+            config_dict["num_classes"] = self.model.segmentation_head._modules["0"].out_channels if hasattr(self.model, "segmentation_head") else 1
+            #num_classes = self.model.segmentation_head._modules["0"].out_channels if hasattr(self.model, "segmentation_head") else 1
+            #print(f"config_dict num_classes: {config_dict["num_classes"]}")
+
+            # ✅ Save model with metadata
+            model_data = {
+                "state_dict": model_state_dict,
+                "config": config_dict,
+                "model_variant": self.model_variant,
+                #"num_classes": num_classes,
+                "seed": self.seed
+            }
+
+            #print(f"model data: {model_data["num_classes"]}")
+            #print(f"num_classes: {model_data.get('num_classes', 'N/A')}")
+            print(f"fPath before saving: {fPath}")
+
+            print("\n🔍 Model architecture before saving:")
+            print(self.model)
+            print("\n🔍 Model state_dict keys before saving:", model_state_dict.keys())
+
+
+            torch.save(model_data, fPath)  # ✅ Save full model data
+
+            # ✅ Sync to WandB if needed
+            if sync:
+                wandb.save(fPath)
+
+                # Ensure config update only when necessary
+                for key, value in config_dict.items():
+                    if key not in wandb.config:  
+                        wandb.config[key] = value  # Update WandB config safely
+
+
+            print(f"✅ Model successfully saved to: {fPath}")
+
+            return fPath
+        
+        except Exception as e:
+            print(f"❌ Model saving failed: {e}")
+            return None
+
+
+
+    def old_save_model(self, model_identifier: str, sync: bool = False) -> str:
+        """
+        Saves the model's state_dict to a file.
         :param model_identifier: Name of the file type.
         :type model_identifier: str
         :param sync: Whether to sync the file to wandb.
@@ -488,30 +542,6 @@ class Runner:
         """
         fName = f"{model_identifier}.pt"
         fPath = os.path.join(self.tmp_dir, fName)
-
-        """
-        # Permanent save directory
-        model_save_dir = self.config.get('model_save_dir', './models')
-        os.makedirs(model_save_dir, exist_ok=True)
-        """
-        """
-        # Only save models in their non-module version, to avoid problems when loading
-        try:
-            model_state_dict = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
-
-            # Save model weights + config in a dict
-            metadata = {
-                "state_dict": model_state_dict,
-                "config": dict(self.config)  # Convert config to dict before saving
-            }
-            
-            torch.save(metadata, fPath)  # Save both model weights and config
-
-            # ✅ Log config explicitly in WandB
-            if sync:
-                wandb.save(fPath)  # Save model file
-                wandb.config.update(metadata["config"], allow_val_change=True)  # Update WandB config
-        """
 
         try:
             # Get model state dict
@@ -540,12 +570,6 @@ class Runner:
                     if key not in wandb.config:  
                         wandb.config[key] = value  # Update WandB config safely
 
-            """ old
-            torch.save(model_state_dict, fPath)  # Temporary save
-
-            if sync:
-                wandb.save(fPath)
-            """
 
             print(f"✅ Model successfully saved to: {fPath}")
             
@@ -573,7 +597,12 @@ class Runner:
         for metric_type, val in loggingDict.items():
             wandb.run.summary[f"{metric_type}"] = val
 
-        wandb.log(loggingDict)
+        if wandb.run is not None:
+            wandb.log(loggingDict)
+        else:
+            print("⚠️ Warning: WandB run is not initialized! Skipping logging.")
+        
+        #wandb.log(loggingDict)
 
     def define_optimizer_scheduler(self):
         # Define the optimizer
@@ -640,35 +669,108 @@ class Runner:
                 # DEBUG: ✅ Clip outputs to avoid extreme values
                 # output = torch.clamp(output, min=-1000, max=1000)
                 # Check if the model is producing NaNs
-                if torch.isnan(output).any():
-                    print(f"⚠️ NaN detected in model output at step {step}")
-                
-                loss = self.loss_criteria[self.loss_name](output, y_target)
+                # if torch.isnan(output).any():
+                #     print(f"⚠️ NaN detected in model output at step {step}")
 
-                self.metrics[data]['loss'](value=loss, weight=len(y_target))
+                # ✅ Compute the selected training loss
+                loss = self.loss_criteria[self.loss_name](output, y_target)
+                if torch.isnan(loss).any():
+                    sys.stdout.write(f"⚠️ Warning: {self.loss_name} loss is NaN in {data}.\n")
+                else:
+                    self.metrics[data]['loss'](value=loss, weight=len(y_target))
+
+
+                # ✅ Handle different model variants
+                if self.model_variant == "gaussian":
+                    mean_output = output[:, 0, :, :]  # Extract mean for standard loss
+                elif self.model_variant == "quantiles":
+                    median_index = len(self.config.quantiles) // 2  # Find the middle quantile (e.g., q50)
+                    mean_output = output[:, median_index, :, :]  # Extract median quantile
+                else:
+                    mean_output = output  # Baseline & ensemble models use full output
+
 
                 for loss_type in self.loss_criteria.keys():
-                    metric_loss = self.loss_criteria[loss_type](output, y_target)
+                    # Skip Gaussian loss for non-Gaussian models
+                    if loss_type == "gaussian_loss":
+                        if self.model_variant != "gaussian":
+                            continue
+                        metric_loss = self.loss_criteria["gaussian_loss"](output, y_target)
 
-                    # Check if the metric_loss is nan
+                    # Skip Pinball loss for non-Quantile models
+                    elif loss_type == "pinball_loss":
+                        if self.model_variant != "quantiles":
+                            continue
+                        metric_loss = self.loss_criteria["pinball_loss"](output, y_target)
+
+                    # Compute all other losses (l1, l2, huber, etc.)
+                    else:
+                        metric_loss = self.loss_criteria[loss_type](mean_output, y_target)
+
+                    # Ensure we don't log NaN values
                     if not torch.isnan(metric_loss):
                         self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
+
+                """
+                # ✅ Compute losses
+                for loss_type in self.loss_criteria.keys():
+                    if loss_type == "gaussian_loss" and self.model_variant == "gaussian":
+                        metric_loss = self.loss_criteria["gaussian_loss"](output, y_target)  # Use full output
+                    elif loss_type == "gaussian_loss" and self.model_variant != "gaussian":
+                        continue  # Skip Gaussian loss if model is not Gaussian
+                    elif loss_type == "pinball_loss" and self.model_variant == "quantiles":
+                        metric_loss = self.loss_criteria["pinball_loss"](output, y_target)  # Use full output
+                    elif loss_type == "pinball_loss" and self.model_variant != "quantiles":
+                        continue  # Skip Pinball loss if model is not Quantile
+                    elif loss_type not in ["gaussian_loss", "pinball_loss"]:
+                        metric_loss = self.loss_criteria[loss_type](mean_output, y_target)  # Use only median quantile or mean
+
+
+                    # Check for NaNs
+                    #if metric_loss is not None and not torch.isnan(metric_loss):
+                    if not torch.isnan(metric_loss):
+                        self.metrics[data][loss_type](value=metric_loss, weight=len(y_target))
+                """
+
+            #print(f"DEBUG: output shape after loss calc: {mean_output.shape}")
+            # ✅ Ensure shape is always (B, 1, H, W) for visualization
+            viz_output = mean_output.unsqueeze(1) if mean_output.dim() == 3 else mean_output
+            #print(f"DEBUG: output shape before visualization: {viz_output.shape}")
 
             if step <= 4:
                 # Create the visualizations for the first 4 batches
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
-                    viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output)
+                    viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=viz_output)
                     wandb.log({data + '/' + viz_func + "_" + str(step): wandb.Image(viz)}, commit=False)
+
 
     @torch.no_grad()
     def eval_fixval(self):
         """Creates the fixval plots and logs them to wandb."""
         sys.stdout.write(f"Creating fixval plots.\n")
+
         def remove_sub_track_vis_wout_labels(inputs, labels, outputs):
-            return inputs, None, outputs  # Same as remove_sub_track, but for visualization (i.e. has outputs as well)
+            # 🛠 Handle Gaussian Model: Extract only the mean prediction
+            if outputs.dim() == 4 and outputs.shape[1] == 2:  # Gaussian model (B, 2, H, W)
+                outputs = outputs[:, 0, :, :]  # Extract mean prediction → (B, H, W)
+
+            # 🛠 Handle Quantile Regression Model: Extract the median quantile prediction
+            elif outputs.dim() == 4 and self.model_variant == "quantiles":
+                num_quantiles = outputs.shape[1]  # Get number of quantiles (e.g., 3 for τ = [0.1, 0.5, 0.9])
+                median_index = num_quantiles // 2  # Index for the median quantile (τ = 0.5)
+                outputs = outputs[:, median_index, :, :]  # Extract median prediction → (B, H, W)
+
+            # ✅ Ensure outputs always have shape (B, 1, H, W)
+            if outputs.dim() == 3:  # If shape is (B, H, W), add channel dimension
+                outputs = outputs.unsqueeze(1)  # (B, 1, H, W)
+
+            #print(f"DEBUG: output shape for eval_fixval: {outputs.shape}")
+
+            return inputs, None, outputs
 
         viz_fn = visualization.get_input_output_visualization(rgb_channels=[6, 5, 4],
-                                                                  process_variables=remove_sub_track_vis_wout_labels)
+                                                            process_variables=remove_sub_track_vis_wout_labels)
+
         loggingDict = dict()
         for x_input, fileNames in tqdm(self.loader['fix_val']):
             x_input = x_input.to(self.device, non_blocking=True)
@@ -676,18 +778,25 @@ class Runner:
             with torch.amp.autocast('cuda', enabled=self.use_amp):
                 output = self.model.eval()(x_input)
 
-            # ✅ **New Fix: Check Number of Channels Before Visualization**
-            if x_input.shape[1] < 3:  
-                print(f"⚠️ Skipping visualization: Only {x_input.shape[1]} input channels available.")
-                continue  # Skip this visualization if fewer than 3 channels
+            # ✅ Handle different model variants
+            if self.model_variant == "gaussian":
+                mean_output = output[:, 0, :, :]  # Extract mean
+            elif self.model_variant == "quantiles":
+                median_index = len(self.config.quantiles) // 2  # Find median quantile (q50)
+                mean_output = output[:, median_index, :, :]
+            else:
+                mean_output = output  # Standard output
 
+            # ✅ Ensure correct shape for visualization
+            viz_output = mean_output.unsqueeze(1) if mean_output.dim() == 3 else mean_output
 
-            viz = viz_fn(inputs=x_input, labels=None, outputs=output)
+            # ✅ Generate FixVal visualization
+            viz = viz_fn(inputs=x_input, labels=None, outputs=viz_output)
             jointName = "__".join(fileNames)
             wandb.log({'fixval' + '/' + 'input_output' + '/' + jointName: wandb.Image(viz)}, commit=False)
 
-            # Get the min and max prediction for each image
-            flattened_output = output.flatten(start_dim=1)
+            # ✅ Log min/max values
+            flattened_output = viz_output.flatten(start_dim=1)
             min_values = flattened_output.min(dim=1).values
             max_values = flattened_output.max(dim=1).values
 
@@ -696,7 +805,12 @@ class Runner:
                 name = fileNames[i]
                 loggingDict[f"fixval/min_{name}"] = min_val.item()
                 loggingDict[f"fixval/max_{name}"] = max_val.item()
-        wandb.log(loggingDict, commit=False)
+
+        if wandb.run is not None:
+            wandb.log(loggingDict, commit=False)
+        else:
+            print("⚠️ Warning: WandB run is not initialized! Skipping logging.")
+
 
 
     def train_ensemble(self):
@@ -705,12 +819,19 @@ class Runner:
         for i in range(self.ensemble_size):
             seed = i
             self.set_seed(seed=seed)  # Set the seed
+
+            # ✅ Create a new config dictionary with the updated seed
+            config_dict = dict(self.config)
+            config_dict["seed"] = seed  # Update seed value safely
+            #self.config.update({"seed": seed}, allow_val_change=True)
+            
             sys.stdout.write(f"Training model {i+1}/{self.ensemble_size} with seed {seed}\n")
 
             # Start a new WandB run for each ensemble member
             wandb.init(
-                config=dict(self.config),
-                project='base-001',
+                #config=dict(self.config),
+                config=config_dict,
+                project='test-002',
                 name=f'ensemble_model_{i}',
                 entity=None,
                 reinit=True
@@ -721,11 +842,13 @@ class Runner:
             self.train()
 
             # Save the trained model
-            model_path = self.save_model(f'name1_ensemble_model_{i}', sync=True)  # Save model and push to WandB
+            model_path = self.save_model(f'ensemble_model_{self.config.n_iterations}_{i}', sync=True)  # Save model and push to WandB
             ensemble.append(model_path)
 
             # Finish WandB run to ensure separation
-            wandb.finish()
+            if wandb.run is not None:
+                wandb.finish()
+            #wandb.finish()
     
         self.model_paths['ensemble'] = ensemble
 
@@ -750,9 +873,9 @@ class Runner:
             beta_distribution = torch.distributions.beta.Beta(alpha, alpha)
             sys.stdout.write(f"Using mixup with alpha={alpha}. Example sample: {beta_distribution.sample()}\n")
 
-        for step in tqdm(range(1, n_iterations + 1, 1)):
+        for step in tqdm(range(1, n_iterations + 1, 1), desc="Training progress"):
             # debug
-            print(f"Training iteration: {step}/{n_iterations}")
+            #print(f"Training iteration: {step}/{n_iterations}")
 
             # Reinitialize the train iterator if it reaches the end
             if step == 1 or (step - 1) % len(self.loader['train']) == 0:
@@ -776,8 +899,29 @@ class Runner:
             itStartTime = time.time()
             with torch.amp.autocast('cuda',enabled=self.use_amp):
                 output = self.model.train()(x_input)
-                # print(f"output shape: {output.shape}") #DEBUG
-                loss = self.loss_criteria[self.loss_name](output, y_target)
+
+                # print(f"DEBUG: output shape: {output.shape}")
+
+                # ✅ Handle different model variants
+                if self.model_variant == "gaussian":
+                    mean_output = output[:, 0, :, :]  # Extract mean prediction
+                elif self.model_variant == "quantiles":
+                    median_index = len(self.config.quantiles) // 2  # Find median quantile (q50)
+                    mean_output = output[:, median_index, :, :]
+                else:
+                    mean_output = output  # Standard for baseline/ensemble
+
+                # ✅ Compute correct loss
+                if self.model_variant == "gaussian":
+                    loss = self.loss_criteria["gaussian_loss"](output, y_target)  # Full output for Gaussian loss
+                elif self.model_variant == "quantiles":
+                    loss = self.loss_criteria["pinball_loss"](output, y_target)  # Full output for quantile loss
+                else:
+                    loss = self.loss_criteria[self.loss_name](mean_output, y_target)  # Other losses use mean or median
+
+
+                #loss = self.loss_criteria[self.loss_name](output, y_target)
+
                 ampGradScaler.scale(loss).backward()  # Scaling + Backpropagation
                 # Unscale the weights manually, normally this would be done by ampGradScaler.step(), but since
                 # we might use gradient clipping, this has to be split
@@ -790,12 +934,47 @@ class Runner:
                 self.scheduler.step()
                 self.metrics['train']['loss'](value=loss, weight=len(y_target))
 
+                # ✅ Compute other loss metrics
                 with torch.no_grad():
                     for loss_type in self.loss_criteria.keys():
-                        metric_loss = self.loss_criteria[loss_type](output, y_target)
-                        # Check if the metric_loss is nan
+                        # Skip Gaussian loss for non-Gaussian models
+                        if loss_type == "gaussian_loss":
+                            if self.model_variant != "gaussian":
+                                continue
+                            metric_loss = self.loss_criteria["gaussian_loss"](output, y_target)
+
+                        # Skip Pinball loss for non-Quantile models
+                        elif loss_type == "pinball_loss":
+                            if self.model_variant != "quantiles":
+                                continue
+                            metric_loss = self.loss_criteria["pinball_loss"](output, y_target)
+
+                        # Compute all other losses (l1, l2, huber, etc.)
+                        else:
+                            metric_loss = self.loss_criteria[loss_type](mean_output, y_target)
+
+                        # Ensure we don't log NaN values
                         if not torch.isnan(metric_loss):
                             self.metrics['train'][loss_type](value=metric_loss, weight=len(y_target))
+
+                    """
+                    for loss_type in self.loss_criteria.keys():
+                        if loss_type == "gaussian_loss" and self.model_variant == "gaussian":
+                            metric_loss = self.loss_criteria["gaussian_loss"](output, y_target)
+                        elif loss_type == "gaussian_loss" and self.model_variant != "gaussian":
+                            continue  # Skip Gaussian loss for non-Gaussian models
+                        elif loss_type == "pinball_loss" and self.model_variant == "quantiles":
+                            metric_loss = self.loss_criteria["pinball_loss"](output, y_target)
+                        elif loss_type == "pinball_loss" and self.model_variant != "quantiles":
+                            continue  # Skip Pinball loss for non-Quantile models
+                        elif loss_type not in ["gaussian_loss", "pinball_loss"]:
+                            metric_loss = self.loss_criteria[loss_type](mean_output, y_target)
+
+                        if not torch.isnan(metric_loss):
+                            self.metrics['train'][loss_type](value=metric_loss, weight=len(y_target))
+                        """
+
+                            
                 itEndTime = time.time()
                 n_img_in_iteration = int(self.config.batch_size)
                 ips = n_img_in_iteration / (itEndTime - itStartTime)  # Images processed per second
@@ -814,10 +993,32 @@ class Runner:
 
             if step % log_freq == 0 or step == n_iterations:
                 phase_runtime = time.time() - phase_start
+
+                #print(f"DEBUG: output shape in train() before reshaping: {output.shape}")
+
+                if self.model_variant == "gaussian":
+                    output_viz = output[:, 0, :, :]  # Extract only the mean prediction (Shape: B, H, W)
+                    output_viz = output_viz.unsqueeze(1)  # Add missing channel dimension -> (B, 1, H, W)
+
+                elif self.model_variant == "quantiles":
+                    num_quantiles = output.shape[1]  # Extract number of quantiles (e.g., 3 for τ = [0.1, 0.5, 0.9])
+                    median_index = num_quantiles // 2  # Index for the median quantile (τ = 0.5)
+                    output_viz = output[:, median_index, :, :]  # Extract the median prediction (Shape: B, H, W)
+                    output_viz = output_viz.unsqueeze(1)  # Add missing channel dimension -> (B, 1, H, W)
+
+                else:
+                    output_viz = output  # Use unchanged output for baseline & ensemble models
+
+                # ✅ Ensure outputs always have 4 dimensions
+                if output_viz.dim() == 3:  # If shape is (B, H, W), add channel dimension
+                    output_viz = output_viz.unsqueeze(1)  # (B, 1, H, W)
+
+                #print(f"DEBUG: output shape in train() after reshaping: {output_viz.shape}")
+
                 
                 # Create the visualizations
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
-                    viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output)
+                    viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output_viz)
                     wandb.log({'train/' + viz_func: wandb.Image(viz)}, commit=False)
 
                 # Evaluate the validation dataset

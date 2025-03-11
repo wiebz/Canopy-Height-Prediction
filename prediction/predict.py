@@ -2,11 +2,14 @@ import os
 import json
 import csv
 import torch
+import seaborn as sns
 import numpy as np
+import time
 import gc
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+from torch.cuda.amp import autocast
 import segmentation_models_pytorch as smp
 from torchvision.transforms import transforms
 import sys
@@ -17,7 +20,7 @@ from prediction.prediction_utils import get_dataloader
 from prediction.fixval_visualization import get_input_output_visualization
 import wandb
 
-BATCH_SIZE = 1
+
 CHUNK_SIZE = 20  # Save after every 100 samples
 
 
@@ -29,38 +32,102 @@ class Predictor:
         self.configs = []
         self.log_to_wandb = log_to_wandb
         self.ensemble_size = 0  # Only relevant for ensemble models
-  
+
         for model_path in model_paths:
             if MODEL_VARIANT in model_path and model_path.endswith(".pt"):
+                print(f"🔍 Looking for models matching variant: {MODEL_VARIANT}")
+                print(f"🔍 Available models: {model_paths}")
+
+                # Allow 'getattr' to avoid UnpicklingError
+                torch.serialization.add_safe_globals([getattr])
+
+                # Now load the model safely
                 model_data = torch.load(model_path, map_location=self.device, weights_only=False)
+
+                # DEBUG
+                # print("🔍 Loaded checkpoint keys:", model_data.keys())  # Should contain 'state_dict'
+                # print("🔍 Loaded state_dict keys:", model_data["state_dict"].keys())  # Should include decoder & segmentation head
+
+                # DEBUG
+                if "state_dict" not in model_data or "config" not in model_data:
+                    raise ValueError(f"❌ ERROR: Model checkpoint missing critical components!")
+
                 model_state_dict = model_data["state_dict"]
-            
-                # ✅ Ensure 'config' exists and extract 'model_variant'
-                if isinstance(model_data, dict):
-                    config = model_data.get("config", {})
+                config = model_data.get("config", {})
+
+                print(f"🔍 Debug: Config content: {config}")
+
+
+                model_variant = config.get("_items", {}).get("model_variant", "MISSING")
+
+                if model_variant == "MISSING":
+                    print(f"⚠️ WARNING: Model variant not found in {model_path}, defaulting to MISSING.")
+
+                # # ✅ Ensure 'config' exists and extract 'model_variant'
+                # if isinstance(model_data, dict):
+                #     config = model_data.get("config", {})
                     
-                    # Some models might store 'model_variant' separately—try both ways
-                    model_variant = config.get("model_variant") or model_data.get("model_variant", "MISSING")
+                #     # Some models might store 'model_variant' separately—try both ways
+                #     model_variant = config.get("model_variant") or model_data.get("model_variant", "MISSING")
                     
-                    if model_variant == "MISSING":
-                        print(f"⚠️ WARNING: Model variant not found in {model_path}, defaulting to MISSING")
-                else:
-                    print(f"⚠️ WARNING: Model file {model_path} has unexpected structure. Defaulting variant to MISSING.")
-                    config = {}
-                    model_variant = "MISSING"
-                
+                #     if model_variant == "MISSING":
+                #         print(f"⚠️ WARNING: Model variant not found in {model_path}, defaulting to MISSING")
+                # else:
+                #     print(f"⚠️ WARNING: Model file {model_path} has unexpected structure. Defaulting variant to MISSING.")
+                #     config = {}
+                #     model_variant = "MISSING"
+
 
                 model = self._initialize_model(config)
-                model.load_state_dict(model_state_dict)
+
+                self.models.append((model, model_variant))  # Store in list
+
+
+                # Debugging print
+                # print("🔍 Model structure at prediction time:")
+                # print(model)  # Ensure decoder & segmentation head exist before loading state_dict
+
+
+                # DEBUG
+                #model_data = torch.load(model_path, map_location=self.device, weights_only=True)
+                # print(f"🔍 Loaded model keys: {list(model_data['state_dict'].keys())[:10]}")  # Show first 10 keys
+
+                # for name, param in model.named_parameters():
+                #     print(f"🛠 Model Parameter: {name}, Shape: {param.shape}")
+
+                # DEBUG
+                missing_keys, unexpected_keys = model.load_state_dict(model_data["state_dict"], strict=False)
+
+                if missing_keys:
+                    print(f"⚠️ WARNING: Missing keys when loading state dict: {missing_keys}")
+                if unexpected_keys:
+                    print(f"⚠️ WARNING: Unexpected keys in state dict: {unexpected_keys}")
+
+                # print("🔍 Model architecture at prediction time:", model)
+                # print("🔍 Model expected state_dict keys:", model.state_dict().keys())  # Expected layers
+
+
+
+                model.load_state_dict(model_state_dict, strict=False)
                 model.to(self.device)
                 model.eval()
 
-                self.models.append((model, model_variant))
+                # self.models.append((model, model_variant)) # weiter oben
                 self.configs.append(config)
                 if model_variant == "ensemble":
                     self.ensemble_size += 1
 
-                print(f"🔍 Loaded model from {model_path} with variant: {model_variant}")
+                print(f"\n🔍 Loaded model from {model_path} with variant: {model_variant}")
+
+                for model, variant in self.models:
+                    sample_params = next(model.parameters()).detach().cpu().numpy().flatten()[:5]
+                    print(f"🔍 Model: {variant}, First 5 Parameters: {sample_params}")
+
+                for name, param in model.named_parameters():
+                    if torch.isnan(param).any():
+                        print(f"🚨 NaN detected in parameter: {name}")
+
+
 
 
         if self.ensemble_size > 0:
@@ -71,6 +138,9 @@ class Predictor:
         """Initializes a model based on the saved config."""
         model_arch = config.get("arch", "unet")
         backbone = config.get("backbone", "resnet50")
+        num_classes = config.get("num_classes", 1)
+        
+        print(f"\nInitilaizing model with arch: {model_arch}, backbone: {backbone}, and output classes: {num_classes}\n")
 
         model_mapping = {
             "unet": smp.Unet,
@@ -91,57 +161,162 @@ class Predictor:
             encoder_name=backbone,
             encoder_weights=None,
             in_channels=14,
-            classes=1,
+            classes=num_classes,
         )
     
 
     def predict(self, dataloader, model_variant):
         """Handles inference and processes model outputs efficiently."""
         print(f"\n🚀 Starting prediction for {model_variant}...")
+        print(f"📌 Total samples in dataset: {len(dataloader.dataset)}")
+        
         predictions_list = []
+        all_predictions = [] # collect all predictions for final saving
+        all_labels = []  # collect all ground truth labels
+
+        start_time = time.time()
 
         with torch.no_grad():
-            for step, (x_input, file_names) in enumerate(tqdm(dataloader, desc=f"Processing Data ({model_variant})")):
-                x_input = x_input.to(self.device, non_blocking=True)
-                batch_predictions = []
-
-                if model_variant == "ensemble":
-                    for model, _ in self.models:
-                        pred = model(x_input).cpu().numpy()
-                        batch_predictions.append(pred)
-                    batch_predictions = np.array(batch_predictions)
-
-                    # Compute ensemble statistics
-                    mean_prediction = np.mean(batch_predictions, axis=0)
-                    std_dev = np.std(batch_predictions, axis=0)
-                    safe_mean = np.where(mean_prediction == 0, np.nan, mean_prediction)
-                    var_coef = np.where(np.isnan(safe_mean), 0, std_dev / safe_mean)
-                    lower_bound = np.percentile(batch_predictions, 5, axis=0)
-                    upper_bound = np.percentile(batch_predictions, 95, axis=0)
+            for step, (x_input, y_target, file_names) in enumerate(tqdm(dataloader, desc=f"Processing Data ({model_variant})")):
                 
-                elif model_variant == "quantile_regression":
-                    model = self.models[0][0]
-                    predictions = model(x_input).cpu().numpy()
-                    quantiles = self.configs[0].get("quantiles", [0.05, 0.5, 0.95])
-                    prediction_outputs = {f"q{int(q*100)}": predictions[i, q_idx].tolist() for q_idx, q in enumerate(quantiles)}
+                x_input = x_input.to(self.device, non_blocking=True)
+                # DEBUG
+                if torch.isnan(x_input).sum() > 0:
+                    print(f"🔍 x_input Min: {x_input.min()}, Max: {x_input.max()}, NaN Count: {torch.isnan(x_input).sum()}")
 
-                elif model_variant == "gaussian_loss":
-                    model = self.models[0][0]
-                    predictions = model(x_input).cpu().numpy()
-                    mean_prediction = predictions[:, 0].tolist()
-                    variance_prediction = predictions[:, 1].tolist()
-                    std_dev = np.sqrt(predictions[:, 1]).tolist()
-                    prediction_outputs = {
-                        "mean": mean_prediction,
-                        "variance": variance_prediction,
-                        "std_dev": std_dev
-                    }
+                y_target = y_target.to(self.device, non_blocking=True)  # Ground truth labels
 
-                else:  # Baseline Model
-                    model = self.models[0][0]
-                    mean_prediction = model(x_input).cpu().numpy()
-                    std_dev = var_coef = lower_bound = upper_bound = None
-                    prediction_outputs = {"mean": mean_prediction.tolist()}
+                # with torch.amp.autocast('cuda'): # use mixed precision inference
+                with torch.amp.autocast('cuda', enabled=False): # Disable autocast to test NaN behavior
+
+                    if model_variant == "ensemble":
+
+                        batch_predictions = []
+
+                        for model, _ in self.models:
+                            pred = model(x_input).cpu().numpy()
+                            batch_predictions.append(pred)
+                        predictions = np.array(batch_predictions)
+                        #predictions = np.array(batch_predictions)
+
+                        # Compute ensemble statistics
+                        mean_prediction = np.mean(predictions, axis=0)
+                        std_dev = np.std(predictions, axis=0)
+                        safe_mean = np.where(mean_prediction == 0, np.nan, mean_prediction)
+                        var_coef = np.where(np.isnan(safe_mean), 0, std_dev / safe_mean)
+                        lower_bound = np.percentile(predictions, 5, axis=0)
+                        upper_bound = np.percentile(predictions, 95, axis=0)
+
+                        prediction_outputs = {
+                            "mean": mean_prediction.tolist(),
+                            "std_dev": std_dev.tolist(),
+                            "var_coef": var_coef.tolist(),
+                            "lower_bound": lower_bound.tolist(),
+                            "upper_bound": upper_bound.tolist(),
+                            "individual_predictions": predictions[:].tolist()
+                        }
+                        batch_predictions = []
+                        
+                    
+                    elif model_variant == "quantiles":
+                        model = self.models[0][0]
+                        predictions = model(x_input).cpu().numpy()
+
+                        if step == 0:
+                            # ✅ Debug Step: Print NaN counts and check shapes
+                            print(f"🔍 Step {step}: x_input shape: {x_input.shape}, predictions shape: {predictions.shape}")
+                            print(f"   ❌ NaN count in predictions: {np.isnan(predictions).sum()}")
+                            print(f"   🔹 Min/Max Predictions: {np.nanmin(predictions)}, {np.nanmax(predictions)}")
+
+                        if np.isnan(predictions).sum() > 0:
+                            print(f"🚨 WARNING: NaN values detected at Step {step}!")
+                            print(f"   File names: {file_names}")
+                            print(f"   Model Inputs: {x_input}")
+                            print(f"   Model Predictions: {predictions}")
+                            #break  # Stop at first NaN detection for debugging
+                        
+                        # Ensure we correctly extract quantiles from the model config
+                        config_dict = self.configs[0]
+                        assert config_dict in self.configs, f"config_dict not in self.configs" 
+        
+
+                        # # Handle cases where config is wrapped inside '_items'
+                        # if isinstance(config_dict, dict):
+                        #     if "quantiles" in config_dict:
+                        #         quantiles = config_dict["quantiles"]
+                        #     elif "_items" in config_dict and "quantiles" in config_dict["_items"]:
+                        #         quantiles = config_dict["_items"]["quantiles"]
+                        #     else:
+                        #         print("❌ ERROR: Could not find quantiles in model config!")
+                        #         quantiles = [0.05, 0.5, 0.95]  # Default values to avoid crashes
+                        # else:
+                        #     print("❌ ERROR: Unexpected config format in predict.py!")
+                        #     quantiles = [0.05, 0.5, 0.95]  # Default values
+
+                        if "_items" in config_dict and "quantiles" in config_dict["_items"]:
+                                quantiles = config_dict["_items"]["quantiles"]
+                        else:
+                            print("❌ ERROR: Could not find quantiles in model config!")
+                            quantiles = [0.05, 0.5, 0.95]  # Default values to avoid crashes
+
+
+                        # ✅ Print only for the first step
+                        if step == 0:
+                            print(f"🔍 Quantile levels used: {quantiles}")
+
+                        if not isinstance(quantiles, list) or len(quantiles) == 0:
+                            print("❌ ERROR: No valid quantile levels found! Check model config.")
+                    
+                        prediction_outputs = {f"q{int(q*100)}": predictions[:, q_idx].tolist() for q_idx, q in enumerate(quantiles)}
+
+                    elif model_variant == "gaussian":
+                        model = self.models[0][0]
+                        predictions = model(x_input).cpu().numpy()
+                        
+                        if step == 0:
+                            print(f"🔍 Gaussian predictions shape: {predictions.shape}")
+                        if predictions.shape[1] != 2:
+                            print("❌ ERROR: Gaussian model must output 2 channels (mean, variance)!")
+
+                        prediction_outputs = {
+                            "mean": predictions[:, 0].tolist(),
+                            "variance": predictions[:, 1].tolist(),
+                            "std_dev": np.sqrt(predictions[:, 1]).tolist()
+                        }
+
+                    else:  # Baseline Model
+                        model = self.models[0][0]
+                        # predictions = model(x_input).cpu().numpy()
+
+                        # DEBUG
+                        raw_predictions = model(x_input)  # Get raw model output (before activation)
+                        # ✅ Debugging: Print Min/Max values and check for NaNs/Infs
+                        if torch.isnan(raw_predictions).sum().item() > 0:
+                            print(f"🔍 Raw Model Output - Min: {raw_predictions.min().item()}, Max: {raw_predictions.max().item()}")
+                            print(f"❌ NaN count: {torch.isnan(raw_predictions).sum().item()}, Inf count: {torch.isinf(raw_predictions).sum().item()}")
+                        predictions = raw_predictions.cpu().numpy()  # Move to CPU for further processing
+
+
+                        if step == 0:
+                            # ✅ Debug Step: Print NaN counts and check shapes
+                            print(f"🔍 Step {step}: x_input shape: {x_input.shape}, predictions shape: {predictions.shape}")
+                            print(f"   ❌ NaN count in predictions: {np.isnan(predictions).sum()}")
+                            print(f"   🔹 Min/Max Predictions: {np.nanmin(predictions)}, {np.nanmax(predictions)}")
+
+                        if np.isnan(predictions).sum() > 0:
+                            print(f"🚨 WARNING: NaN values detected at Step {step}!")
+                            print(f"   File names: {file_names}")
+                            print(f"   Model Inputs: {x_input}")
+                            print(f"   Model Predictions: {predictions}")
+                            break  # Stop at first NaN detection for debugging
+
+
+                        prediction_outputs = {"mean": predictions.tolist()}
+
+                if np.isnan(predictions).sum() > 0:
+                    print(f"🚨 First Batch NaN Count: {np.isnan(predictions).sum()}")
+                    print(f"🔹 Model Output Sample: {predictions[:5]}")
+
 
                 # Store predictions per sample
                 for i, file_name in enumerate(file_names):
@@ -149,37 +324,119 @@ class Predictor:
                         "file_name": os.path.basename(file_name),
                         "input_image": x_input[i].cpu().numpy().tolist(),  # Store input image
                         "variant": model_variant,
-                        "outputs": prediction_outputs if model_variant != "ensemble" else {
-                            "mean": mean_prediction[i].tolist(),
-                            "std_dev": std_dev[i].tolist() if std_dev is not None else None,
-                            "var_coef": var_coef[i].tolist() if var_coef is not None else None,
-                            "lower_bound": lower_bound[i].tolist() if lower_bound is not None else None,
-                            "upper_bound": upper_bound[i].tolist() if upper_bound is not None else None,
-                            "individual_predictions": batch_predictions[:, i].tolist()
-                        },
+                        "outputs": {key: value[i] if isinstance(value, list) else np.array(value)[i].tolist()
+                                    for key, value in prediction_outputs.items()},
+                        "ground_truth": y_target[i].cpu().numpy().tolist(),  # Save ground truth labels
                     }
                     predictions_list.append(prediction_entry)
 
-                # Save every CHUNK_SIZE samples and reset the list
-                if len(predictions_list) >= CHUNK_SIZE:
-                    self.save_predictions(predictions_list, model_variant, intermediate=True)
-                    predictions_list = []  # Reset list to free memory
+                    # ✅ Store minimal data for visualization (no full image data)
+                    all_labels.extend(y_target.cpu().numpy().tolist())  # Append full batch
+                    if model_variant == 'quantiles':
+                        all_predictions.extend(prediction_outputs["q50"])
+                    else:
+                        all_predictions.extend(prediction_outputs["mean"])  # Append full batch predictions
 
-                del x_input, batch_predictions, mean_prediction, std_dev, var_coef, lower_bound, upper_bound
-                gc.collect()
-                torch.cuda.empty_cache()
+                #self.save_predictions(predictions_list, model_variant)  # Save immediately
 
-        # Save final results
-        self.save_predictions(predictions_list, model_variant)
+                # ✅ Save every `SAVE_INTERVAL` batches instead of every batch
+                # if step % CHUNK_SIZE == 0 or step == len(dataloader) - 1:
+                if step > 0 and (step % CHUNK_SIZE == 0 or step == len(dataloader) - 1):
+                    self.save_predictions(predictions_list, model_variant)
+                    predictions_list.clear()  # Correct way to clear without breaking the reference
 
-        return predictions_list
+
+                # ✅ Print only for the first step
+                if step == 0:
+                    print(f"🔍 Final prediction outputs for {model_variant}: {prediction_outputs.keys()}")
+                if not prediction_outputs:
+                    print("❌ ERROR: No predictions found! Model might not be running correctly.")
+                    
+
+                # ✅ Improved Memory Management
+                del x_input, y_target, prediction_outputs, predictions
+                # if model_variant == "ensemble":
+                #     del batch_predictions
+                # else:
+                #     del predictions
+
+                # if model_variant == "ensemble":
+                #     del batch_predictions, mean_prediction, std_dev, var_coef, lower_bound, upper_bound
+                # elif model_variant == "quantiles":
+                #     del predictions, prediction_outputs
+                # elif model_variant == "gaussian":
+                #     del predictions, mean_prediction, variance_prediction, std_dev, prediction_outputs
+                # else:  # Baseline
+                #     del mean_prediction, prediction_outputs
+                if step > 0 and (step % CHUNK_SIZE == 0 or step == len(dataloader) - 1):
+                    gc.collect()
+                    torch.cuda.empty_cache()
+
+                # if step % 10 == 0:
+                #     print(f"🔄 Processed {step} samples so far...")
+
+
+            total_time = time.time() - start_time
+            total_minutes = total_time // 60
+            total_seconds = total_time % 60
+            print(f"⏳ Total Prediction Time: {total_time:.2f}s -> {int(total_minutes)}:{total_seconds:.2f} | Speed: {len(dataloader.dataset) / total_time:.2f} samples/sec")
+
+
+        # self.save_predictions(predictions_list, model_variant, intermediate=False)
+        # print(f"✅ Final prediction count: {len(predictions_list)}")
+        # if len(predictions_list) != len(dataloader.dataset):
+        #     print(f"❌ WARNING: Mismatch in expected predictions! {len(predictions_list)} saved vs. {len(dataloader.dataset)} expected.")
+        # else:
+        #     print(f"🎉 Successfully processed all {len(predictions_list)} samples!")
+
+
+        # ✅ Convert lists to NumPy arrays for visualization
+        all_labels = np.array(all_labels)
+        all_predictions = np.array(all_predictions)
+
+        # Create visualizations
+        # viz_start = time.time()
+        # self.create_fixval_visualizations(all_labels, all_predictions, model_variant)
+        # print(f"⏳ Visualization time: {time.time() - viz_start:.3f} seconds")
+
+        # 🕒 Log total execution time
+        print(f"⏳ Total prediction time: {time.time() - start_time:.3f} seconds")
+
+        return all_labels, all_predictions
+
+
+    def save_predictions(self, predictions, model_variant):
+        """Saves each prediction as an individual file inside a model-variant folder."""
+        output_dir = os.path.join("prediction_outputs", model_variant)
+        os.makedirs(output_dir, exist_ok=True)
+
+        for pred in predictions:
+            file_name = pred["file_name"].split('.')[0]  # Remove extension
+            npz_path = os.path.join(output_dir, f"{file_name}.npz")
+
+            try:
+                np.savez_compressed(npz_path, **pred)
+                # print(f"✅ Saved prediction: {npz_path}")
+
+            except Exception as e:
+                print(f"❌ NPZ save failed for {file_name}: {e}")
+        
+        print(f"✅ {len(predictions)} images saved to {output_dir}.")
+
+        # Free memory
+        del predictions
+        gc.collect()
+        torch.cuda.empty_cache()
+
     
 
-    def save_predictions(self, predictions, model_variant, intermediate=False):
+    def old_save_predictions(self, predictions, model_variant, intermediate=False):
         """Saves predictions in JSON and CSV formats, supports intermediate saving."""
         output_dir = "prediction_outputs/"
         os.makedirs(output_dir, exist_ok=True)
         suffix = "_intermediate" if intermediate else ""
+
+        """
         json_file = os.path.join(output_dir, f"predictions_{model_variant}{suffix}.json")
         with open(json_file, "w") as f:
             json.dump(predictions, f, indent=4)
@@ -188,10 +445,41 @@ class Predictor:
         # 🔹 Save NPZ
         """
         print(f"🛠 Start saving to NPZ...")
-        npz_file = os.path.join(output_dir, f"predictions_{model_variant}.npz")
-        np.savez_compressed(npz_file, predictions=predictions)
-        print(f"✅ NPZ saved: {npz_file}")
-        """
+        npz_file = os.path.join(output_dir, f"predictions_{model_variant}{suffix}.npz")
+
+        try:
+            np.savez_compressed(npz_file, predictions=predictions)  # Save everything at once
+            print(f"✅ NPZ saved: {npz_file}")
+        except Exception as e:
+            print(f"❌ NPZ save failed: {e}")
+
+        # try:
+        #     with open(npz_file, "ab") as f:
+        #         np.save(f, predictions)  # Append each prediction directly
+        #     print(f"✅ NPZ updated: {npz_file} (Batch saved)")
+        # except Exception as e:
+        #     print(f"❌ NPZ save failed: {e}")
+
+        # Free memory
+        del predictions
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        # try:
+        #     npz_file = os.path.join(output_dir, f"predictions_{model_variant}_intermediate.npz")
+
+        #     if os.path.exists(npz_file):
+        #         existing_data = np.load(npz_file, allow_pickle=True)
+        #         existing_predictions = existing_data["predictions"].tolist()  # Convert to list
+        #         combined_predictions = np.array(existing_predictions + predictions, dtype=object)
+        #     else:
+        #         combined_predictions = np.array(predictions, dtype=object)
+
+        #     np.savez_compressed(npz_file, predictions=combined_predictions)
+        #     print(f"✅ NPZ updated: {npz_file}")
+
+        # except Exception as e:
+        #     print(f"❌ NPZ save failed: {e}")
 
 
     def log_to_wandb(self, step, predictions):
@@ -202,8 +490,160 @@ class Predictor:
             print(f"📡 Logged step {step} to WandB efficiently")
 
 
+    def create_fixval_visualizations(self, labels, predictions, model_variant, ignore_value=0, min_value=0, max_value=60, bins=30):
+        """Creates scatter plot and boxplot for FixVal dataset."""
+
+        print(f"Start creating visualizations...")
+
+        if labels.size == 0 or predictions.size == 0:
+            print(f"❌ No prediction data available for {model_variant}, skipping visualizations.")
+            return
+
+        output_dir = os.path.join("prediction_outputs", model_variant)
+        os.makedirs(output_dir, exist_ok=True)
+
+        labels = np.array(labels)
+        predictions = np.array(predictions)
+
+        print(f"Label shape: {labels.shape}, Prediction shape: {predictions.shape}")
+
+        # Remove NaNs from labels and predictions
+        mask = (labels != ignore_value) & ~np.isnan(labels) & ~np.isnan(predictions)
+        labels, predictions = labels[mask], predictions[mask]
+
+        # Ensure both x and y values are within the range
+        labels = np.clip(labels, min_value, max_value)
+        predictions = np.clip(predictions, min_value, max_value)
         
-    def visualize_results(self, predictions, dataloader, model_variant, log_to_wandb=True):
+        # ✅ Scatter Plot
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.scatter(labels, predictions, alpha=0.5, s=5, color="blue")
+        # Symmetric axis scaling
+        ax.set_xlim([min_value, max_value])
+        ax.set_ylim([min_value, max_value])
+        ax.set_aspect('equal', adjustable='box')  # Force square aspect ratio
+        ax.plot([min_value, max_value], [min_value, max_value], c="r", linestyle="--", linewidth=2, label="x=y") # x=y reference line red
+        ax.set_xlabel("Ground Truth Height (m)")
+        ax.set_ylabel("Predicted Height (m)")
+        ax.set_title(f"FixVal: Scatter Plot ({model_variant})")
+        #ax.legend()
+        ax.legend(loc="upper left")
+
+        # Save plot to wandb
+        if wandb.run:
+            wandb.log({f"{model_variant}/scatter_plot": wandb.Image(fig)})
+            print(f"✅ Scatter plot logged to WandB.")
+
+        scatter_path = os.path.join(output_dir, f"fixval_scatter_{model_variant}.png")
+        #fig.savefig(scatter_path)
+        fig.savefig(scatter_path, bbox_inches='tight', dpi=100) # remove whitespace and reduce resolution for faster saving
+        plt.close(fig)
+        print(f"✅ Scatter plot saved: {scatter_path}")
+
+        # ✅ Boxplot
+        
+        # Remove ignored values
+        mask = labels != ignore_value
+        labels = labels[mask]
+        predictions = predictions[mask]
+        
+        bin_size = 5
+        bins = np.arange(min_value, max_value, bin_size)
+
+        bin_indices = np.digitize(labels, bins)
+        bin_errors = [[] for _ in range(len(bins) + 1)]
+        bin_counts = [0] * (len(bins) + 1)
+
+        for bin_idx, true_value, predicted_value in zip(bin_indices, labels, predictions):
+            error = predicted_value - true_value
+            bin_errors[bin_idx].append(error)
+            bin_counts[bin_idx] += 1
+
+        x_labels = [f"{bins[i]}-{bins[i] + bin_size} (n={bin_counts[i]:,})" for i in range(len(bin_counts) - 1)]
+        x_labels.append(f">{bins[-1]} (n={bin_counts[-1]:,})")
+
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(data=bin_errors, fliersize=2)
+        plt.xticks(rotation=90)
+        plt.xlabel("Label Bins")
+        plt.ylabel("Prediction Error")
+        plt.title(f"FixVal: Boxplot ({model_variant})")
+
+        # Save plot to wandb
+        if wandb.run:
+            wandb.log({f"{model_variant}/boxplot": wandb.Image(plt)})
+            print(f"✅ Boxplot logged to WandB.")
+        boxplot_path = os.path.join(output_dir, f"fixval_boxplot_{model_variant}.png")
+        #plt.savefig(boxplot_path)
+        fig.savefig(boxplot_path, bbox_inches='tight', dpi=100) # remove whitespace for faster saving
+        plt.close()
+        print(f"✅ Boxplot saved: {boxplot_path}")
+
+        # ✅ Log to WandB
+        # if wandb.run:
+        #     wandb.log({f"{model_variant}/scatter_plot": wandb.Image(scatter_path)})
+        #     wandb.log({f"{model_variant}/boxplot": wandb.Image(boxplot_path)})
+
+
+
+
+    def old_create_fixval_visualizations(self, predictions, model_variant):
+        """Creates scatter plot and boxplot for FixVal dataset."""
+        output_dir = "prediction_outputs/"
+        os.makedirs(output_dir, exist_ok=True)
+        labels = np.array([p["ground_truth"] for p in predictions])
+        if model_variant == "quantiles":
+            preds = np.array([p["outputs"]["q50"] for p in predictions])
+        else:
+            preds = np.array([p["outputs"]["mean"] for p in predictions])
+
+        # Scatter Plot
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.scatter(labels, preds, alpha=0.5, s=5, color="blue")
+        ax.plot([0, 60], [0, 60], c="r", linestyle="--", linewidth=2, label="x=y")
+        ax.set_xlabel("Ground Truth Height (m)")
+        ax.set_ylabel("Predicted Height (m)")
+        ax.set_title("FixVal: Scatter Plot of Predictions vs. Ground Truth")
+        ax.legend()
+        scatter_path = os.path.join(output_dir, f"fixval_scatter_{model_variant}.png")
+        fig.savefig(scatter_path)
+        plt.close(fig)
+        print(f"✅ Scatter plot saved: {scatter_path}")
+
+        # Boxplot
+        bin_size = 5
+        bins = np.arange(0, 60, bin_size)
+        bin_indices = np.digitize(labels, bins)
+        bin_errors = [[] for _ in range(len(bins) + 1)]
+        bin_counts = [0] * (len(bins) + 1)
+
+        for bin_idx, error in zip(bin_indices, preds - labels):
+            bin_errors[bin_idx].append(error)
+            bin_counts[bin_idx] += 1
+
+        x_labels = [f"{bins[i]}-{bins[i] + bin_size} (n={bin_counts[i]:,})" for i in range(len(bin_counts) - 1)]
+        x_labels.append(f">{bins[-1]} (n={bin_counts[-1]:,})")
+
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(data=bin_errors, fliersize=2)
+        plt.xticks(rotation=90)
+        plt.xlabel("Label Bins")
+        plt.ylabel("Prediction Error")
+        plt.title("FixVal: Boxplot of Errors for Tree Height Bins")
+        boxplot_path = os.path.join(output_dir, f"fixval_boxplot_{model_variant}.png")
+        plt.savefig(boxplot_path)
+        plt.close()
+        print(f"✅ Boxplot saved: {boxplot_path}")
+
+        # Optionally log to WandB
+        if wandb.run:
+            wandb.log({f"fixval/scatter_plot": wandb.Image(scatter_path)})
+            wandb.log({f"fixval/boxplot": wandb.Image(boxplot_path)})
+
+
+
+        
+    def old_visualize_results(self, predictions, dataloader, model_variant, log_to_wandb=True):
         """
         Generates visualizations for predictions and logs them to WandB.
         
