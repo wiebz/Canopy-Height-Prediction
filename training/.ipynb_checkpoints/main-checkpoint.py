@@ -16,13 +16,25 @@ warnings.filterwarnings('ignore')
 
 debug = "--debug" in sys.argv
 
+MODEL_VARIANT = 'gaussian' # 'ensemble', 'baseline', 'gaussian', 'quantiles'
+
+assert MODEL_VARIANT in ['baseline', 'ensemble', 'gaussian', 'quantiles'], f"Variant {MODEL_VARIANT} not implemented." #'l1', 'l2'
+        
+if MODEL_VARIANT in ['baseline', 'ensemble']:
+    LOSS_NAME = 'l2'
+elif MODEL_VARIANT == 'gaussian':
+    LOSS_NAME = 'gaussian_loss'
+elif MODEL_VARIANT == 'quantiles':
+    LOSS_NAME = 'pinball_loss'
+
+
 defaults = dict(
     # Model save directory
     model_save_dir="./models/trained/",  # Train models go here
 
     # System
     seed=1,
-    n_iterations=75000,
+    n_iterations=100000,
     log_freq=5000,
 
     # Data
@@ -35,15 +47,15 @@ defaults = dict(
     use_pretrained_model=False,
 
     # Model variant specifics
-    model_variant='quantiles', # 'ensemble', 'baseline', 'gaussian', 'quantiles'
+    model_variant=MODEL_VARIANT, # 'ensemble', 'baseline', 'gaussian', 'quantiles'
     ensemble_size=5,
     quantiles=[0.1, 0.25, 0.5, 0.75, 0.9],
-    loss_name='pinball_loss', #'pinball_loss', #'gaussian_loss', 'l2'
+    loss_name=LOSS_NAME, #'pinball_loss', #'gaussian_loss', 'l2'
 
     # Optimization
     optim='AdamW',
     initial_lr=1e-3,
-    weight_decay=1e-2,
+    weight_decay=1e-3,
     use_standardization=False,
     use_augmentation=False,
     use_label_rescaling=False,
@@ -64,7 +76,7 @@ defaults = dict(
     cyclic_mode='triangular2',
 )
 
-print(f"Defaults: {defaults}")
+# print(f"Defaults: {defaults}")
 
 """
 if not debug:
@@ -74,13 +86,16 @@ if not debug:
 
 # Add the hostname to the defaults
 defaults['computer'] = socket.gethostname()
-print(f"Defaults: {defaults}")
+# print(f"Defaults: {defaults}")
 
 # Configure wandb logging
 wandb.init(
+    # mode="offline",
     config=defaults,
-    project='50k_models',
+    project='final-runs',
+    name=f'{MODEL_VARIANT}',
     entity=None,
+    resume="allow"
 )
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
@@ -120,6 +135,8 @@ with tempdir() as tmp_dir:
     runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
     runner.run()
 
+    """ *** MOVED TO train() TO SAVE INTERMEDIATE MODELS ***
+
     # Save the trained ensemble models
     trained_model_dir = config.get('model_save_dir', './models/trained/')
     os.makedirs(trained_model_dir, exist_ok=True)
@@ -143,9 +160,13 @@ with tempdir() as tmp_dir:
 
         # Delete the local files
         if os.path.exists(wandb_dir_path):
-            shutil.rmtree(wandb_dir_path)
+            shutil.rmtree(wandb_dir_path)"
+    """
 
+    
     # Move Trained Models to Prediction Directory
+    trained_model_dir = config.get('model_save_dir', './models/trained/')
+    os.makedirs(trained_model_dir, exist_ok=True)
     prediction_model_dir = "./models/prediction/"
     os.makedirs(prediction_model_dir, exist_ok=True)
 

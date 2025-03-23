@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 debug = "--debug" in sys.argv
 
-MODEL_VARIANT = 'baseline' # 'ensemble', 'baseline', 'gaussian', 'quantiles'
+MODEL_VARIANT = 'gaussian' # 'ensemble', 'baseline', 'gaussian', 'quantiles'
 
 assert MODEL_VARIANT in ['baseline', 'ensemble', 'gaussian', 'quantiles'], f"Variant {MODEL_VARIANT} not implemented." #'l1', 'l2'
         
@@ -34,7 +34,7 @@ defaults = dict(
 
     # System
     seed=1,
-    n_iterations=10000,
+    n_iterations=100000,
     log_freq=5000,
 
     # Data
@@ -55,7 +55,7 @@ defaults = dict(
     # Optimization
     optim='AdamW',
     initial_lr=1e-3,
-    weight_decay=1e-2,
+    weight_decay=1e-3,
     use_standardization=False,
     use_augmentation=False,
     use_label_rescaling=False,
@@ -90,9 +90,12 @@ defaults['computer'] = socket.gethostname()
 
 # Configure wandb logging
 wandb.init(
+    # mode="offline",
     config=defaults,
-    project='base-001',
+    project='final-runs',
+    name=f'{MODEL_VARIANT}',
     entity=None,
+    resume="allow"
 )
 config = wandb.config
 config = GeneralUtility.update_config_with_default(config, defaults)
@@ -132,6 +135,8 @@ with tempdir() as tmp_dir:
     runner = Runner(config=config, tmp_dir=tmp_dir, debug=debug)
     runner.run()
 
+    """ *** MOVED TO train() TO SAVE INTERMEDIATE MODELS ***
+
     # Save the trained ensemble models
     trained_model_dir = config.get('model_save_dir', './models/trained/')
     os.makedirs(trained_model_dir, exist_ok=True)
@@ -155,9 +160,13 @@ with tempdir() as tmp_dir:
 
         # Delete the local files
         if os.path.exists(wandb_dir_path):
-            shutil.rmtree(wandb_dir_path)
+            shutil.rmtree(wandb_dir_path)"
+    """
 
+    
     # Move Trained Models to Prediction Directory
+    trained_model_dir = config.get('model_save_dir', './models/trained/')
+    os.makedirs(trained_model_dir, exist_ok=True)
     prediction_model_dir = "./models/prediction/"
     os.makedirs(prediction_model_dir, exist_ok=True)
 

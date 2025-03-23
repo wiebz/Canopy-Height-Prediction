@@ -5,6 +5,7 @@ import sys
 import time
 from collections import OrderedDict
 from typing import Optional, Any
+from collections import defaultdict
 
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -119,6 +120,9 @@ class Runner:
                 self.metrics[mode][f"l1_{threshold}"] = MeanMetric().to(device=self.device)
 
         self.metrics['train']['ips_throughput'] = MeanMetric().to(device=self.device)
+
+        # ✅ Initialize loss history dictionary to store intermediate metrics
+        self.loss_history = {}
 
 
     @staticmethod
@@ -503,6 +507,11 @@ class Runner:
             #print(f"num_classes: {model_data.get('num_classes', 'N/A')}")
             print(f"fPath before saving: {fPath}")
 
+            # print("\n🔍 Model architecture before saving:")
+            # print(self.model)
+            # print("\n🔍 Model state_dict keys before saving:", model_state_dict.keys())
+
+
             torch.save(model_data, fPath)  # ✅ Save full model data
 
             # ✅ Sync to WandB if needed
@@ -594,6 +603,7 @@ class Runner:
 
         if wandb.run is not None:
             wandb.log(loggingDict)
+            # wandb.join()
         else:
             print("⚠️ Warning: WandB run is not initialized! Skipping logging.")
         
@@ -737,6 +747,7 @@ class Runner:
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
                     viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=viz_output)
                     wandb.log({data + '/' + viz_func + "_" + str(step): wandb.Image(viz)}, commit=False)
+                    # wandb.join()
 
 
     @torch.no_grad()
@@ -789,11 +800,13 @@ class Runner:
             viz = viz_fn(inputs=x_input, labels=None, outputs=viz_output)
             jointName = "__".join(fileNames)
             wandb.log({'fixval' + '/' + 'input_output' + '/' + jointName: wandb.Image(viz)}, commit=False)
+            # wandb.join()
 
             # ✅ Log min/max values
             flattened_output = viz_output.flatten(start_dim=1)
             min_values = flattened_output.min(dim=1).values
             max_values = flattened_output.max(dim=1).values
+
 
             for i, (min_val, max_val) in enumerate(zip(min_values, max_values)):
                 # Log the min and max values as numeric values with the appropriate filename
@@ -803,14 +816,17 @@ class Runner:
 
         if wandb.run is not None:
             wandb.log(loggingDict, commit=False)
+            # wandb.join()
         else:
             print("⚠️ Warning: WandB run is not initialized! Skipping logging.")
 
 
 
     def train_ensemble(self):
-        self.model_paths['ensemble'] = []  # make sure the list is empty
-        ensemble = []
+        # self.model_paths['ensemble'] = []  # make sure the list is empty
+        # ensemble = []
+        self.model_paths['ensemble'] = {}
+
         for i in range(self.ensemble_size):
             seed = i
             self.set_seed(seed=seed)  # Set the seed
@@ -829,13 +845,24 @@ class Runner:
                 project='test-002',
                 name=f'ensemble_model_{i}',
                 entity=None,
-                reinit=True
+                reinit=True,
+                resume="allow"
             )
+
+            if hasattr(self, "model") and self.model is not None:
+                del self.model  # Free previous model
+                torch.cuda.empty_cache()  # Clear unused memory
 
             # Reinitialize and train the ensemble member
             self.model = self.get_model(reinit=True)
             self.train()
 
+            # if wandb.run:
+                #wandb.finish()
+                # wandb.join()
+
+
+        """ *** NOT NEEDED ANYMORE ***
             # Save the trained model
             model_path = self.save_model(f'ensemble_model_{self.config.n_iterations}_{i}', sync=True)  # Save model and push to WandB
             ensemble.append(model_path)
@@ -848,12 +875,24 @@ class Runner:
         self.model_paths['ensemble'] = ensemble
 
 
+        # Save the trained ensemble models
+        trained_model_dir = self.config.get('model_save_dir', './models/trained/')
+        os.makedirs(trained_model_dir, exist_ok=True)
+
+        for idx, model_path in enumerate(self.model_paths['ensemble']):
+                save_path = os.path.join(trained_model_dir, f'ensemble_model_{idx}.pt')
+                shutil.copy(model_path, save_path)
+                print(f"✅ Saved ensemble model {idx+1} to {save_path}")
+        """
+
+
     def train(self):
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
         ampGradScaler = torch.amp.GradScaler('cuda',enabled=self.use_amp)
 
         self.reset_averaged_metrics()
         phase_start = time.time()
+        intermediate_runtime_start = time.time()
 
         # Define the Stochastic Weight Averaging model
         swa_model = None
@@ -1015,6 +1054,7 @@ class Runner:
                 for viz_func in ['input_output', 'density_scatter_plot', 'boxplot']:
                     viz = self.get_visualization(viz_name=viz_func, inputs=x_input, labels=y_target, outputs=output_viz)
                     wandb.log({'train/' + viz_func: wandb.Image(viz)}, commit=False)
+                    #  wandb.join()
 
                 # Evaluate the validation dataset
                 if not self.debug:
@@ -1027,8 +1067,80 @@ class Runner:
                 """
 
                 self.log(step=step, phase_runtime=phase_runtime)
+                if step in range(5000, n_iterations+1, 5000):
+                #if step in {10000, 25000, 40000, 50000, 60000, 65000, n_iterations}:
+                    intermediate_runtime = time.time() - intermediate_runtime_start
+
+                    print("📊 Calculate metrics for intermediate saving \n")
+                    metricsDict = self.get_metrics()
+                    metricsDict.update({
+                        'phase_runtime': intermediate_runtime,
+                        'iteration': step,
+                        })
+
+                    for metric_type, value in metricsDict.items():
+                        print(f"{metric_type}: {value}")
+
+
+                    # Save the trained ensemble models
+                    trained_model_dir = self.config.get('model_save_dir', './models/trained/')
+                    os.makedirs(trained_model_dir, exist_ok=True)
+
+                    if self.model_variant == 'ensemble':
+                        model_path = self.save_model(f'ensemble_model_{step}_{self.config.seed}', sync=True)  # Save model and push to WandB
+                        self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'][self.config.seed] = model_path
+
+                        save_path = os.path.join(trained_model_dir, f'ensemble_model_{step//1000}k_{self.config.seed}.pt')
+                        
+                    else:
+                        model_path = self.save_model(f'{self.model_variant}', sync=True)  # Save model and push to WandB
+                        self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'] = model_path
+
+                        save_path = os.path.join(trained_model_dir, f'{self.model_variant}_model_{step//1000}k.pt')
+                        
+                    shutil.copy(model_path, save_path)
+
                 self.reset_averaged_metrics()
                 phase_start = time.time()
+
+            """
+            if step in {10000, 25000, 50000, n_iterations}:
+
+                # Save the trained ensemble models
+                trained_model_dir = self.config.get('model_save_dir', './models/trained/')
+                os.makedirs(trained_model_dir, exist_ok=True)
+
+                if self.model_variant == 'ensemble':
+                    model_path = self.save_model(f'ensemble_model_{step}_{self.config.seed}', sync=True)  # Save model and push to WandB
+                    #ensemble.append(model_path)
+                    # self.model_paths[f'{self.model_variant}'][f'{step//1000}k'][self.config.seed] = model_path
+                    #self.model_paths.setdefault(f'{self.model_variant}', {}).setdefault(f'{step//1000}k', {})[self.config.seed] = model_path
+                    self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'][self.config.seed] = model_path
+
+                    #for idx, model_path in enumerate(self.model_paths['ensemble']):
+                    save_path = os.path.join(trained_model_dir, f'ensemble_model_{step//1000}k_{self.config.seed}.pt')
+                    # shutil.copy(model_path, save_path)
+                    # print(f"✅ Saved ensemble model {self.config.seed + 1} with {step} iterations to {save_path}")
+
+
+                else:
+                    # Save the trained model and upload it to wandb
+                    model_path = self.save_model(f'{self.model_variant}', sync=True)  # Speichere das Modell
+                    # self.model_paths[f'{self.model_variant}'][f'{step//1000}k'] = model_path
+                    #self.model_paths.setdefault(f'{self.model_variant}', {})[f'{step//1000}k'] = model_path
+                    self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'] = model_path
+
+                    save_path = os.path.join(trained_model_dir, f'{self.model_variant}_model_{step//1000}k.pt')
+                    
+                shutil.copy(model_path, save_path)
+                print(f"✅ Saved {self.model_variant} model with {step} iterations to {save_path}")
+                
+                """
+
+                # if wandb.run:
+                #     wandb_dir_path = wandb.run.dir
+                #     wandb.join()
+
 
     def run(self):
         """Controls the execution of the script."""
@@ -1046,6 +1158,42 @@ class Runner:
 
         else:
             self.train()
+
+        # Close wandb run
+            wandb_dir_path = wandb.run.dir
+            wandb.join()
+
+            # Delete the local files
+            if os.path.exists(wandb_dir_path):
+                shutil.rmtree(wandb_dir_path)
+
+        """" *** NOT NEEDED ANYMORE ***
             # Save the trained model and upload it to wandb
             model_path = self.save_model(f'{self.model_variant}', sync=True)  # Speichere das Modell
             self.model_paths[f'{self.model_variant}'] = model_path
+
+        # Save the trained ensemble models
+        trained_model_dir = self.config.get('model_save_dir', './models/trained/')
+        os.makedirs(trained_model_dir, exist_ok=True)
+
+        if self.model_variant == 'ensemble':
+            for idx, model_path in enumerate(self.model_paths['ensemble']):
+                save_path = os.path.join(trained_model_dir, f'ensemble_model_{idx}.pt')
+                shutil.copy(model_path, save_path)
+                print(f"✅ Saved ensemble model {idx+1} to {save_path}")
+        
+        else:
+            model_variant = self.config.model_variant
+            model_path = self.model_paths[f'{model_variant}']
+            save_path = os.path.join(trained_model_dir, f'{model_variant}_model.pt')
+            shutil.copy(model_path, save_path)
+            print(f"✅ Saved {model_variant} model to {save_path}")
+
+            # Close wandb run
+            wandb_dir_path = wandb.run.dir
+            wandb.join()
+
+            # Delete the local files
+            if os.path.exists(wandb_dir_path):
+                shutil.rmtree(wandb_dir_path)
+        """

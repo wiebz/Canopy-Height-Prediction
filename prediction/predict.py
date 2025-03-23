@@ -204,15 +204,21 @@ class Predictor:
                         std_dev = np.std(predictions, axis=0)
                         safe_mean = np.where(mean_prediction == 0, np.nan, mean_prediction)
                         var_coef = np.where(np.isnan(safe_mean), 0, std_dev / safe_mean)
-                        lower_bound = np.percentile(predictions, 5, axis=0)
-                        upper_bound = np.percentile(predictions, 95, axis=0)
+                        q10 = np.percentile(predictions, 10, axis=0)
+                        q25 = np.percentile(predictions, 25, axis=0)
+                        q50 = np.percentile(predictions, 50, axis=0)
+                        q75 = np.percentile(predictions, 75, axis=0)
+                        q90 = np.percentile(predictions, 90, axis=0)
 
                         prediction_outputs = {
                             "mean": mean_prediction.tolist(),
                             "std_dev": std_dev.tolist(),
                             "var_coef": var_coef.tolist(),
-                            "lower_bound": lower_bound.tolist(),
-                            "upper_bound": upper_bound.tolist(),
+                            "q10": q10.tolist(),
+                            "q25": q25.tolist(),
+                            "q50": q50.tolist(),
+                            "q75": q75.tolist(),
+                            "q90": q90.tolist(),
                             "individual_predictions": predictions[:].tolist()
                         }
                         batch_predictions = []
@@ -278,10 +284,32 @@ class Predictor:
                         if predictions.shape[1] != 2:
                             print("❌ ERROR: Gaussian model must output 2 channels (mean, variance)!")
 
+                        # Compute statistics
+                        mean = predictions[:, 0]
+                        variance = predictions[:, 1]
+                        std_dev = np.sqrt(predictions[:, 1])
+
+                        from scipy.stats import norm
+
+                        z_50 = norm.ppf(0.5 + 0.50 / 2)  # 0.674
+                        z_80 = norm.ppf(0.5 + 0.80 / 2)  # 1.282
+                        n = len(predictions[:,1])
+
+                        # z = norm.ppf(0.5 + confidence / 2)
+                        lower_80 = mean - z_80 * std_dev / np.sqrt(n)
+                        lower_50 = mean - z_50 * std_dev / np.sqrt(n)
+                        upper_50 = mean + z_50 * std_dev / np.sqrt(n)
+                        upper_80 = mean + z_80 * std_dev / np.sqrt(n)
+
+
                         prediction_outputs = {
-                            "mean": predictions[:, 0].tolist(),
-                            "variance": predictions[:, 1].tolist(),
-                            "std_dev": np.sqrt(predictions[:, 1]).tolist()
+                            "mean": mean.tolist(),
+                            "variance": variance.tolist(),
+                            "std_dev": std_dev.tolist(),
+                            "lower_80": lower_80.tolist(),
+                            "lower_50": lower_50.tolist(),
+                            "upper_50": upper_50.tolist(),
+                            "upper_80": upper_80.tolist()
                         }
 
                     else:  # Baseline Model

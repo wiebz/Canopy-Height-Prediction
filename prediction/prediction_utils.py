@@ -38,7 +38,7 @@ def get_dataloader(data_path, csv_file, batch_size=2, num_workers=4):
     transform = transforms.Compose([transforms.ToTensor()])
     dataset = FixValDataset(data_path=data_path, dataframe=csv_file, image_transforms=transform)
     
-    return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, drop_last=True)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers) #, drop_last=True)
 
 
 
