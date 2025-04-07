@@ -79,6 +79,7 @@ class Runner:
 
         # Set a couple useful variables
         self.seed = int(self.config.seed)
+        self.current_seed = self.seed
         self.loss_name = self.config.loss_name or 'l2' # vorher: shift_l1
         sys.stdout.write(f"Using loss: {self.loss_name}.\n")
         self.use_amp = self.config.fp16
@@ -500,7 +501,7 @@ class Runner:
                 "config": config_dict,
                 "model_variant": self.model_variant,
                 #"num_classes": num_classes,
-                "seed": self.seed
+                "seed": self.current_seed
             }
 
             #print(f"model data: {model_data["num_classes"]}")
@@ -828,8 +829,9 @@ class Runner:
         self.model_paths['ensemble'] = {}
 
         for i in range(self.ensemble_size):
-            seed = i
+            seed = i+1+5
             self.set_seed(seed=seed)  # Set the seed
+            self.current_seed = seed
 
             # ✅ Create a new config dictionary with the updated seed
             config_dict = dict(self.config)
@@ -840,10 +842,10 @@ class Runner:
 
             # Start a new WandB run for each ensemble member
             wandb.init(
-                #config=dict(self.config),
+                # mode="offline",
                 config=config_dict,
-                project='test-002',
-                name=f'ensemble_model_{i}',
+                project='final_runs',
+                name=f'ensemble_model_{seed}',
                 entity=None,
                 reinit=True,
                 resume="allow"
@@ -855,6 +857,7 @@ class Runner:
 
             # Reinitialize and train the ensemble member
             self.model = self.get_model(reinit=True)
+            self.reset_averaged_metrics()
             self.train()
 
             # if wandb.run:
@@ -887,6 +890,8 @@ class Runner:
 
 
     def train(self):
+        self.define_optimizer_scheduler()  # This was moved from run() so that ensemble models are properly reinitialized
+
         log_freq, n_iterations = self.config.log_freq, self.config.n_iterations
         ampGradScaler = torch.amp.GradScaler('cuda',enabled=self.use_amp)
 
@@ -1087,10 +1092,14 @@ class Runner:
                     os.makedirs(trained_model_dir, exist_ok=True)
 
                     if self.model_variant == 'ensemble':
-                        model_path = self.save_model(f'ensemble_model_{step}_{self.config.seed}', sync=True)  # Save model and push to WandB
-                        self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'][self.config.seed] = model_path
+                        model_path = self.save_model(f'ensemble_model_{step}_{self.current_seed}', sync=True)  # Save model and push to WandB
+                        # self.model_paths.setdefault(f'{self.model_variant}', defaultdict(dict))[f'{step}'][self.config.seed] = model_path
+                        variant_dict = self.model_paths.setdefault(self.model_variant, defaultdict(dict))
+                        step_dict = variant_dict.setdefault(str(step), {})  # make sure step is a string
+                        step_dict[self.current_seed] = model_path
 
-                        save_path = os.path.join(trained_model_dir, f'ensemble_model_{step//1000}k_{self.config.seed}.pt')
+
+                        save_path = os.path.join(trained_model_dir, f'ensemble_model_{step//1000}k_{self.current_seed}.pt')
                         
                     else:
                         model_path = self.save_model(f'{self.model_variant}', sync=True)  # Save model and push to WandB
@@ -1147,11 +1156,10 @@ class Runner:
         # We start training from scratch
         if not self.model_variant == 'ensemble': 
             self.set_seed(seed=self.seed)  # Set the seed
+            self.current_seed = self.seed
         loaders = self.get_dataloaders()
         self.loader['train'], self.loader['val'], self.loader['fix_val'] = loaders
         self.model = self.get_model(reinit=True, model_path=self.model_paths['initial'])  # Load the model
-
-        self.define_optimizer_scheduler()  # This was moved before define_strategy to have the optimizer available
 
         if self.model_variant == 'ensemble':
             self.train_ensemble()  # Train the ensemble model

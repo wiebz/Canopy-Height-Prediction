@@ -286,20 +286,24 @@ class Predictor:
 
                         # Compute statistics
                         mean = predictions[:, 0]
-                        variance = predictions[:, 1]
-                        std_dev = np.sqrt(predictions[:, 1])
+                        # variance = predictions[:, 1]
+                        log_variance = predictions[:, 1]
+                        # std_dev = np.sqrt(predictions[:, 1])
+
+                        # Convert from log(σ²) → σ²
+                        variance = np.exp(log_variance)
+                        std_dev = np.sqrt(variance)
 
                         from scipy.stats import norm
 
                         z_50 = norm.ppf(0.5 + 0.50 / 2)  # 0.674
                         z_80 = norm.ppf(0.5 + 0.80 / 2)  # 1.282
-                        n = len(predictions[:,1])
 
                         # z = norm.ppf(0.5 + confidence / 2)
-                        lower_80 = mean - z_80 * std_dev / np.sqrt(n)
-                        lower_50 = mean - z_50 * std_dev / np.sqrt(n)
-                        upper_50 = mean + z_50 * std_dev / np.sqrt(n)
-                        upper_80 = mean + z_80 * std_dev / np.sqrt(n)
+                        lower_80 = mean - z_80 * std_dev
+                        lower_50 = mean - z_50 * std_dev
+                        upper_50 = mean + z_50 * std_dev
+                        upper_80 = mean + z_80 * std_dev
 
 
                         prediction_outputs = {
@@ -360,7 +364,7 @@ class Predictor:
 
                     # ✅ Store minimal data for visualization (no full image data)
                     all_labels.extend(y_target.cpu().numpy().tolist())  # Append full batch
-                    if model_variant == 'quantiles':
+                    if model_variant in ['quantiles', 'ensemble']:
                         all_predictions.extend(prediction_outputs["q50"])
                     else:
                         all_predictions.extend(prediction_outputs["mean"])  # Append full batch predictions

@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 debug = "--debug" in sys.argv
 
-MODEL_VARIANT = 'gaussian' # 'ensemble', 'baseline', 'gaussian', 'quantiles'
+MODEL_VARIANT = 'ensemble' # 'ensemble', 'baseline', 'gaussian', 'quantiles'
 
 assert MODEL_VARIANT in ['baseline', 'ensemble', 'gaussian', 'quantiles'], f"Variant {MODEL_VARIANT} not implemented." #'l1', 'l2'
         
@@ -36,6 +36,8 @@ defaults = dict(
     seed=1,
     n_iterations=100000,
     log_freq=5000,
+    # DEBUG n_iterations=200,
+    # DEBUG log_freq=25,
 
     # Data
     dataset='satellite_data', #ai4forest_debug 'satellite_data'
@@ -48,7 +50,7 @@ defaults = dict(
 
     # Model variant specifics
     model_variant=MODEL_VARIANT, # 'ensemble', 'baseline', 'gaussian', 'quantiles'
-    ensemble_size=5,
+    ensemble_size=2,
     quantiles=[0.1, 0.25, 0.5, 0.75, 0.9],
     loss_name=LOSS_NAME, #'pinball_loss', #'gaussian_loss', 'l2'
 
@@ -92,7 +94,7 @@ defaults['computer'] = socket.gethostname()
 wandb.init(
     # mode="offline",
     config=defaults,
-    project='final-runs',
+    project='final_runs',
     name=f'{MODEL_VARIANT}',
     entity=None,
     resume="allow"

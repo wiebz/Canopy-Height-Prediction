@@ -1,8 +1,9 @@
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import wandb  # Optional: Only if using Weights & Biases
+import wandb
 import torch
 from torchvision.transforms import transforms
 from matplotlib.colors import Normalize
@@ -10,7 +11,9 @@ from matplotlib import cm
 from scipy.interpolate import interpn
 from tqdm import tqdm
 import time
-from prediction_utils import FixValDataset  # Import FixValDataset from your training config
+from prediction_utils import FixValDataset  # Import FixValDataset from training config
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 GENERATE_SCATTER_PLOT = True
 SAVE_SCATTER_PLOT = True
@@ -54,13 +57,14 @@ print(f"✅ Dataset loaded. Total samples: {len(dataset)}")
 pred_files = sorted([f for f in os.listdir(output_dir) if f.endswith(".npz")])
 print(f"📂 Found {len(pred_files)} prediction files in {output_dir}")
 
-# Load predictions from saved NPZ files
 labels = []
 predictions = []
+lowers = []
+uppers = []
 
-# Iterate over dataset and prediction files in the same order
+# Map predictions and ground truth
 print("🔄 Matching dataset samples with predictions...")
-matching_start_time = time.time()
+mapping_start_time = time.time()
 
 for i in tqdm(range(len(dataset)), desc="Processing dataset", unit="sample"):
     image, label, file_name = dataset[i]  # Load dataset sample
@@ -73,38 +77,52 @@ for i in tqdm(range(len(dataset)), desc="Processing dataset", unit="sample"):
 
     # Load predictions
     data = np.load(pred_file_path, allow_pickle=True)
-    prediction_dict = data["outputs"].item()  # Convert from object array to dict
-    # ✅ Debugging prediction extraction
-    if model_variant == 'quantiles':
-        if 'q50' not in prediction_dict:
-            print(f"❌ ERROR: 'q50' key missing in {file_name}, skipping...")
-            continue
-        prediction = prediction_dict["q50"]  # Extract mean prediction
-    else: 
-        if "mean" not in prediction_dict:
-            print(f"❌ ERROR: 'mean' key missing in {file_name}, skipping...")
-            continue
-        prediction = prediction_dict["mean"]  # Extract mean prediction
+    # prediction_dict = data["outputs"].item()  # Convert from object array to dict
+    
+    # if model_variant in ['quantiles', 'ensemble']:
+    #     # ✅ Debugging prediction extraction
+    #     if 'q50' not in prediction_dict:
+    #         print(f"❌ ERROR: 'q50' key missing in {file_name}, skipping...")
+    #         continue
+    #     prediction = prediction_dict["q50"]  # Extract median prediction
+    # else: 
+    #     # ✅ Debugging prediction extraction
+    #     if "mean" not in prediction_dict:
+    #         print(f"❌ ERROR: 'mean' key missing in {file_name}, skipping...")
+    #         continue
+    #     prediction = prediction_dict["mean"]  # Extract mean prediction
 
-    # Ensure shapes match
-    #label = label.flatten()
-    #prediction = np.array(prediction).flatten()
-    label = label.reshape(-1)  # Reshape from (H, W) to 1D
-    prediction = np.array(prediction).reshape(-1)  # Reshape from (H, W) to 1D
+    outputs = data["outputs"].item() # Convert from object array to dict
 
-    labels.append(label)
-    predictions.append(prediction)
+    if model_variant in ["quantiles", "ensemble"]:
+        prediction = outputs.get("q50")
+        lower = outputs.get("q10")
+        upper = outputs.get("q90")
+    
+    elif model_variant == "gaussian":
+        prediction = outputs.get("mean")
+        lower = outputs.get("lower_80")
+        upper = outputs.get("upper_80")
+    
+    if prediction is None or lower is None or upper is None: continue
+    
+    # Reshape from (H, W) to 1D
+    labels.append(label.reshape(-1))
+    predictions.append(np.array(prediction).reshape(-1))
+    lowers.append(np.array(lower).reshape(-1))
+    uppers.append(np.array(upper).reshape(-1))
+  
 
-print(f"🔍 Processed Label Shape: {label.shape}, Prediction Shape: {prediction.shape}")  # Debug output
-
-matching_end_time = time.time()
-print(f"✅ Matching completed in {matching_end_time - matching_start_time:.2f} seconds.")
+mapping_end_time = time.time()
+print(f"✅ Mapping completed in {mapping_end_time - mapping_start_time:.2f} seconds.")
 
 # Convert to numpy arrays
 labels = np.concatenate(labels)
 predictions = np.concatenate(predictions)
+lowers = np.concatenate(lowers)
+uppers = np.concatenate(uppers)
 
-print(f"✅ Loaded Labels Shape: {labels.shape}, Predictions Shape: {predictions.shape}")
+print(f"✅ Loaded Labels Shape: {labels.shape}, Predictions Shape: {predictions.shape}, Lower: {lowers.shape}, Upper: {uppers.shape}")
 
 if labels.size == 0 or predictions.size == 0:
     print(f"❌ No valid prediction data available for {model_variant}. Exiting.")
@@ -215,7 +233,7 @@ def plot_symmetric_scatter(labels, predictions, ignore_value=0, min_value=0, max
     # Labels and title
     ax.set_xlabel("Ground Truth Height (m)")
     ax.set_ylabel("Predicted Height (m)")
-    ax.set_title("FixVal: Scatter Plot (Gaussian)")
+    ax.set_title(f"FixVal: Scatter Plot ({model_variant})")
 
     # ax.legend()
     ax.legend(loc="upper left") # "upper left", "upper right", "lower left", "lower right", "center left"
@@ -252,9 +270,9 @@ def plot_boxplot(labels, predictions, ignore_value=0, min_value=0, max_value=60,
     errors = predictions_1d - labels_1d
 
     # Only keep non-zero label locations
-    non_zero_label_locs = labels_1d != ignore_value
-    labels_1d = labels_1d[non_zero_label_locs]
-    errors = errors[non_zero_label_locs]
+    mask = labels_1d != ignore_value
+    labels_1d = labels_1d[mask]
+    errors = errors[mask]
 
     # Define bins
     bins = np.arange(min_value, max_value, step_size)
@@ -291,6 +309,138 @@ def plot_boxplot(labels, predictions, ignore_value=0, min_value=0, max_value=60,
     return plt.gcf()  # return the current figure
 
 
+def calculate_regression_metrics(labels, predictions, ignore_value=0):
+
+    # Create mask of valid pixels
+    mask = (labels != ignore_value) & ~np.isnan(labels) & ~np.isnan(predictions) & ~np.isinf(labels) & ~np.isinf(predictions)
+    labels = labels[mask]
+    predictions = predictions[mask]
+
+    # Calculate prediction metrics
+    mae = mean_absolute_error(labels, predictions)
+    mse = mean_squared_error(labels, predictions)
+    rmse = np.sqrt(mse)
+    mape = np.mean(np.abs((labels - predictions) / (labels + 1e-8))) * 100  # avoid division by zero
+
+    return {
+        "MAE": mae,
+        "MSE": mse,
+        "RMSE": rmse,
+        "MAPE (%)": mape
+    }
+
+def evaluate_uncertainty_coverage(labels, predictions, lowers, uppers, ignore_value=0):
+    
+    # Create mask of valid pixels
+    mask = (labels != ignore_value) & ~np.isnan(labels) & ~np.isnan(lowers) & ~np.isnan(uppers)
+    labels = labels[mask]
+    predictions = predictions[mask]
+    lowers = lowers[mask]
+    uppers = uppers[mask]
+
+    total = len(labels)
+    if total == 0:
+        return {}
+    
+    # Calculate prediction interval width and check if labels are inside
+    interval_width = uppers - lowers
+    rel_width = interval_width / (predictions + 1e-8)
+    coverage = ((labels >= lowers) & (labels <= uppers)).sum()
+    print(coverage)
+
+    return {
+        "PICP (80%)": (coverage / total) * 100,
+        "Mean Lower Bound": np.mean(lowers),
+        "Mean Prediction": np.mean(predictions),
+        "Mean Upper Bound": np.mean(uppers),
+        "MPIW": np.mean(interval_width),
+        "Avg Relative Width (%)": np.mean(rel_width) * 100,
+        "Count": total
+    }
+
+
+def regression_metrics_per_bin(labels, predictions, ignore_value=0, min_value=0, max_value=60, step_size=5):
+    
+    # Create valid mask
+    mask = (labels != ignore_value) & ~np.isnan(labels) & ~np.isnan(predictions)
+    labels = labels[mask]
+    predictions = predictions[mask]
+
+    # Create empty bins
+    bins = np.arange(min_value, max_value, step_size)
+    bin_indices = np.digitize(labels, bins)
+
+    results = []
+
+    # Fill canopy height bins with data
+    for i in range(len(bins) + 1):
+        bin_labels = labels[bin_indices == i]
+        bin_preds = predictions[bin_indices == i]
+        if len(bin_labels) == 0: continue
+
+        # Calculate prediction metrics for each bin
+        mae = mean_absolute_error(bin_labels, bin_preds)
+        mse = mean_squared_error(bin_labels, bin_preds)
+        rmse = np.sqrt(mse)
+        mape = np.mean(np.abs((bin_labels - bin_preds) / (bin_labels + 1e-8))) * 100
+        
+        label_str = f"{bins[i-1]}–{bins[i]}" if 0 < i < len(bins) else f">{bins[-1]}" if i == len(bins) else f"<{bins[0]}"
+
+        results.append({
+            "Bin": label_str,
+            "Count": len(bin_labels),
+            "MAE": mae,
+            "MSE": mse,
+            "RMSE": rmse,
+            "MAPE (%)": mape,
+        })
+    return pd.DataFrame(results)
+
+
+def uncertainty_metrics_per_bin(labels, predictions, lowers, uppers, ignore_value=0, min_value=0, max_value=60, step_size=5):
+
+    # Create mask for valid values
+    mask = (labels != ignore_value) & ~np.isnan(labels) & ~np.isnan(lowers) & ~np.isnan(uppers)
+    labels = labels[mask]
+    predictions = predictions[mask]
+    lowers = lowers[mask]
+    uppers = uppers[mask]
+
+    # Create empty bins
+    bins = np.arange(min_value, max_value, step_size)
+    bin_indices = np.digitize(labels, bins)
+
+    results = []
+
+    # Fill canopy height bins with data
+    for i in range(len(bins) + 1):
+        bin_labels = labels[bin_indices == i]
+        bin_preds = predictions[bin_indices == i]
+        bin_lower = lowers[bin_indices == i]
+        bin_upper = uppers[bin_indices == i]
+        if len(bin_labels) == 0: continue
+
+        label_str = f"{bins[i-1]}–{bins[i]}" if 0 < i < len(bins) else f">{bins[-1]}" if i == len(bins) else f"<{bins[0]}"
+
+        # Calculate bin interval width and check if ground truth is in prediction interval
+        interval_width = bin_upper - bin_lower
+        rel_width = interval_width / (bin_preds + 1e-8)
+        coverage = ((bin_labels >= bin_lower) & (bin_labels <= bin_upper)).sum()
+
+        results.append({
+            "Bin": label_str,
+            "Count": len(bin_labels),
+            "PICP (80%)": (coverage / len(bin_labels)) * 100,
+            "Mean Lower Bound": np.mean(bin_lower),
+            "Mean Prediction": np.mean(bin_preds),
+            "Mean Upper Bound": np.mean(bin_upper),
+            "MPIW": np.mean(interval_width),
+            "Avg Relative Width (%)": np.mean(rel_width) * 100,
+        })
+    return pd.DataFrame(results)
+
+
+
 # Save the scatter plot
 if GENERATE_SCATTER_PLOT:
     scatter_fig = plot_symmetric_scatter(labels, predictions)
@@ -320,19 +470,47 @@ if GERNERATE_BOXPLOT:
         print(f"✅ Boxplot logged to WandB.")
 
     if SAVE_BOX_PLOT:
-        # Saving to disk takes quite long
+        # Saving to disk takes quite long -> low resolution
         boxplot_path = os.path.join(output_dir, f"fixval_boxplot_{model_variant}.png")
-        # boxplot_fig.savefig(boxplot_path)
         boxplot_fig.savefig(boxplot_path, bbox_inches='tight', dpi=100) # remove whitespace for faster saving
         print(f"✅ Boxplot saved: {boxplot_path}")
 
     plt.close(boxplot_fig)
 
 
-# ✅ Log to WandB if enabled
-# if wandb.run:
-#     wandb.log({f"{model_variant}/scatter_plot": wandb.Image(scatter_path)})
-#     wandb.log({f"{model_variant}/boxplot": wandb.Image(boxplot_path)})
+# Calculate metrics
+regression_summary = calculate_regression_metrics(labels, predictions)
+uncertainty_summary = evaluate_uncertainty_coverage(labels, predictions, lowers, uppers)
+
+
+# Convert overall metrics to a single-row DataFrame
+summary_row = {
+    "Bin": "Overall",
+    **regression_summary,
+    **uncertainty_summary
+}
+summary_df = pd.DataFrame([summary_row])
+
+# Compute per-bin metrics
+df_regression = regression_metrics_per_bin(labels, predictions)
+df_uncertainty = uncertainty_metrics_per_bin(labels, predictions, lowers, uppers)
+
+
+# Merge per-bin tables and combine with overall metrics
+df_per_bin = pd.merge(df_regression, df_uncertainty, on="Bin", how="outer")
+df_all_metrics = pd.concat([summary_df, df_per_bin], ignore_index=True)
+
+# Save to CSV
+csv_path = os.path.join(output_dir, f"fixval_metrics_{model_variant}.csv")
+df_all_metrics.to_csv(csv_path, index=False)
+print(f"✅ All metrics saved to CSV: {csv_path}")
+
+# Log to WandB
+wandb.log({f"{model_variant}/metrics_table": wandb.Table(dataframe=df_all_metrics)})
+print("📤 Metrics table logged to WandB")
+
+
+
 
 wandb.finish()
 total_end_time = time.time()

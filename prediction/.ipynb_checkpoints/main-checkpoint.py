@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # Initialize WandB
     if LOG_TO_WANDB:
         wandb.init(
-            #mode="offline",  # Add this to prevent network calls
+            # mode="offline",  # Add this to prevent network calls
             project="fixval-predictions",
             #name="fixval_run",  # Set a unique run name
             config={
@@ -58,4 +58,6 @@ if __name__ == "__main__":
     #predictor.visualize_results(predictions, dataloader)
     #predictor.visualize_results(predictions, dataloader, model_variant)
 
+    wandb.finish()
+    
     print("🎉 Prediction pipeline completed successfully!")

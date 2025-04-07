@@ -14,35 +14,31 @@ os.chdir('/home/ubuntu/work/saved_data/Global-Canopy-Height-Map')
 # Adjust model variant
 MODEL_VARIANT = 'gaussian' #'baseline', 'ensemble', 'gaussian', 'quantiles'
 
-PREDICTIONS_FILE = f"prediction_outputs/predictions_{MODEL_VARIANT}.json"
-print(PREDICTIONS_FILE)
+PREDICTION_FOLDER = f"prediction_outputs/{MODEL_VARIANT}"
+print(PREDICTION_FOLDER)
 
-def inspect_json_structure(predictions_file, num_entries=3):
+# PREDICTIONS_FILE = f"prediction_outputs/predictions_{MODEL_VARIANT}.npz"
+# print(PREDICTIONS_FILE)
+
+def inspect_npz_structure(predictions_file, num_entries=3):
     """
     Loads and prints an overview of the JSON file structure.
     
     :param predictions_file: Path to the JSON file containing predictions.
     :param num_entries: Number of entries to print for inspection.
     """
-    """
-    with open(predictions_file, "r") as f:
-        data = json.load(f)
-
-    print(f"🔍 JSON contains {len(data)} prediction entries.\n")
-    """
-
     npz_data = np.load(predictions_file, allow_pickle=True)
     predictions = npz_data["predictions"].tolist()  # Convert numpy array back to list of dicts
     print(f"🔍 npz contains {len(predictions)} prediction entries.\n")
     
     # Inspect general structure
     print("🗂 Available keys in first entry:")
-    for key in data[0].keys():
+    for key in npz_data[0].keys():
         print(f"  - {key}")
 
     # Inspect details inside an entry
     print("\n🔹 Example structure of first entry:")
-    example_entry = data[0]
+    example_entry = npz_data[0]
     for key, value in example_entry.items():
         if isinstance(value, dict):
             print(f"  {key}: (Dictionary with keys: {list(value.keys())})")
@@ -67,26 +63,36 @@ def inspect_json_structure(predictions_file, num_entries=3):
 
     # Print a sample entry
     print("\n📌 Example entry preview:")
-    print(json.dumps(example_entry, indent=2)[:1000])  # Print only the first 1000 characters for readability
+    print(example_entry)
 
 # Run the inspection
 #inspect_json_structure(PREDICTIONS_FILE)
 
-
+"""old"""
 def stream_predictions(predictions_file):
     """
     Stream predictions one-by-one from the JSON file to avoid high memory usage.
     """
-    """ JSON loading
-    with open(predictions_file, "r") as f:
-        data = json.load(f)
-        for entry in data:  # Process one entry at a time
-            yield entry  # Return one image entry at a time
-    """
     # Load npz file
     npz_data = np.load(predictions_file, allow_pickle=True)
-    for entry in npz_data["predictions"]:
-        yield entry.item()  # Convert back to Python dict
+    for entry in npz_data["predictions"]: # Process one entry at a time
+        yield entry.item()  # Return one image entry at a time
+
+def stream_predictions_from_folder(folder_path):
+    """
+    Generator that yields prediction entries from individual .npz files in a folder.
+    """
+    for fname in sorted(os.listdir(folder_path)):
+        if fname.endswith(".npz"):
+            npz_path = os.path.join(folder_path, fname)
+            try:
+                data = np.load(npz_path, allow_pickle=True)
+                # Reconstruct entry as dictionary (each file contains one prediction)
+                entry = {key: data[key].item() if isinstance(data[key], np.ndarray) and data[key].shape == () else data[key] for key in data.files}
+                yield entry
+            except Exception as e:
+                print(f"❌ Failed to load {fname}: {e}")
+
 
 
 def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visualizations", rgb_channels=[6, 5, 4]):
@@ -107,7 +113,8 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
     outputs = entry["outputs"]
 
     # ✅ Extract correct input image from batch
-    x_input = np.array(entry["input_image"])  # Extract the correct image from batch
+    # x_input = np.array(entry["input_image"])  # Extract the correct image from batch
+    x_input = entry["input_image"]
     print(f"Shape of entry['input_image'] saved into x_input: {x_input.shape}")
     
     # if x_input.ndim == 2:  # Missing channel dim (H, W)
@@ -127,13 +134,13 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
     # 🔹 **First Column: Input Image**
     axs[0].imshow(x_input_normalized[rgb_channels, :, :].transpose(1, 2, 0))
     #axs[0].set_title(f"Input Image: {file_name}")
-    axs[0].set_title(f"Input Image {image_index + 1}: {file_name}")
+    axs[0].set_title(f"Input Image: {file_name}")
     axs[0].axis("off")
 
 
     # Determine visualization based on model variant
     if model_variant == "baseline":
-        mean_prediction = np.array(outputs["mean"])[image_index]
+        mean_prediction = outputs["mean"]
         
         im = axs[1].imshow(mean_prediction, cmap="viridis", vmin=0, vmax=35)
         axs[1].set_title("Baseline Prediction")
@@ -143,15 +150,8 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
 
 
     elif model_variant == "ensemble":
-        ensemble_members = np.array(outputs["individual_predictions"])  # Shape: (num_models, H, W)
-        print(f"🔍 Ensemble Members Shape: {ensemble_members.shape}")
-
-        if ensemble_members.ndim == 4:  # Ensure correct shape
-            ensemble_members = ensemble_members[:, image_index, :, :]  # Extract single image from batch
-
-        # Compute mean & variance across ensemble members
-        mean_prediction = np.mean(ensemble_members, axis=0)
-        variance = np.var(ensemble_members, axis=0)
+        mean_prediction = outputs["mean"]
+        variance =  outputs["variance"]
         
         # Plot mean prediction
         im = axs[1].imshow(mean_prediction.numpy(), cmap="viridis", vmin=0, vmax=35)
@@ -161,47 +161,52 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
         im_var = axs[2].imshow(variance.numpy(), cmap="magma", vmin=0, vmax=variance.max())
         axs[2].set_title("Ensemble Variance")
 
+        divider2 = make_axes_locatable(axs[2])
+        cax2 = divider2.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(im_var, cax=cax2, orientation="vertical")
+
+
     
     elif model_variant == "quantiles":
-        print(f"🔍 Available keys in outputs: {outputs.keys()}")  # Debugging
+        # print(f"🔍 Available keys in outputs: {outputs.keys()}")  # Debugging
 
-        quantile_predictions = {key: np.array(val)[image_index] for key, val in outputs.items()}
-        median_prediction = quantile_predictions["q50"]
-
-        # Extract Q0.1 and Q0.9 for 80% interval
-        q0_1 = quantile_predictions["q10"]
-        q0_9 = quantile_predictions["q90"]
+        median_prediction = outputs["q50"]
+        q10 = outputs["q10"]
+        q90 = outputs["q90"]
 
         # ✅ Fix the shape issue before plotting
-        print(f"Shapes - Median: {median_prediction.shape}, Q0.1: {q0_1.shape}, Q0.9: {q0_9.shape}")
+        print(f"Shapes - Median: {median_prediction.shape}, Q0.1: {q10.shape}, Q0.9: {q90.shape}")
 
         # Plot the median prediction
         im = axs[1].imshow(median_prediction, cmap="viridis", vmin=0, vmax=35)
         axs[1].set_title("Median Prediction (Quantiles)")
 
-        # Plot confidence interval
-        x_range = np.arange(q0_1.size)  # Create a sequence matching the number of pixels
-        axs[2].fill_between(x_range, q0_1.flatten(), q0_9.flatten(), alpha=0.3, color='gray', label="Q0.1 - Q0.9")
-        axs[2].plot(x_range, median_prediction.flatten(), color='blue', label="Median")
-        axs[2].set_title("80% Interval (Quantiles)")
-        axs[2].legend()
+        # Plot quantile interval heatmap
+        interval_width = np.array(q90) - np.array(q10)
+        im_ci = axs[2].imshow(interval_width, cmap="magma", vmin=0, vmax=interval_width.max())
+        axs[2].set_title("80% Interval Width (Q10 - Q90)")
+
+        divider2 = make_axes_locatable(axs[2])
+        cax2 = divider2.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(im_ci, cax=cax2, orientation="vertical")
 
 
     elif model_variant == "gaussian":
-        mean_prediction = np.array(outputs["mean"])[image_index]
-        std_dev = np.array(outputs["std_dev"])[image_index]
+        mean_prediction = outputs["mean"]
+        lower_bound = outputs["lower_80"]
+        upper_bound = outputs["upper_80"]
+
         im = axs[1].imshow(mean_prediction, cmap="viridis", vmin=0, vmax=35)
         axs[1].set_title("Gaussian Mean Prediction")
         
-        # Compute 80% confidence interval (Mean ± 1.28 * Std Dev)
-        lower_bound = mean_prediction - 1.28 * std_dev
-        upper_bound = mean_prediction + 1.28 * std_dev
+        # Plot confidence interval heatmap
+        interval_width = np.array(upper_bound) - np.array(lower_bound)
+        im_ci = axs[2].imshow(interval_width, cmap="magma", vmin=0, vmax=interval_width.max())
+        axs[2].set_title("80% Confidence Interval Width")
 
-        x_range = np.arange(lower_bound.size)  # Create an index for pixels
-        axs[2].fill_between(x_range, lower_bound.flatten(), upper_bound.flatten(), alpha=0.3, color='gray', label="80% CI")
-        axs[2].plot(x_range, mean_prediction.flatten(), color='blue', label="Mean")
-        axs[2].set_title("80% Confidence Interval (Gaussian)")
-        axs[2].legend()
+        divider2 = make_axes_locatable(axs[2])
+        cax2 = divider2.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(im_ci, cax=cax2, orientation="vertical")
 
 
     # Add colorbar for predictions
@@ -211,6 +216,10 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
 
     # Show visualization
     plt.show()
+
+    # 🔹 Show figure and wait for input
+    display(fig)  # Works in Jupyter
+    plt.show(block=True)  # For script environments
     
     # Prompt user for saving
     user_input = input("Save this visualization? (yes/no/exit): ").strip().lower()
@@ -221,8 +230,22 @@ def visualize_prediction_interactive(entry, image_index=0, save_path="saved_visu
         print(f"✅ Saved visualization: {save_file}")
     elif user_input == "exit":
         return "exit"
+    
+
+def run_visualization_interactive_npz_folder(folder_path):
+    """
+    Iterates through individual .npz predictions in a folder and visualizes each one interactively.
+    """
+    prediction_stream = stream_predictions_from_folder(folder_path)
+    print("Press ENTER to show next image, type 'yes' to save, or 'exit' to stop.")
+
+    for entry in prediction_stream:
+        result = visualize_prediction_interactive(entry)
+        if result == "exit":
+            break
 
 
+"""old"""
 def run_visualization_interactive(predictions_file):
     """
     Iterates through predictions and allows saving or skipping each one.
@@ -292,11 +315,6 @@ def run_visualization_interactive(predictions_file):
             
 
 # Run the interactive visualization
-run_visualization_interactive(PREDICTIONS_FILE)
+# run_visualization_interactive(PREDICTIONS_FILE)
 
-
-import numpy as np
-npz_data = np.load("/home/ubuntu/work/saved_data/Global-Canopy-Height-Map/prediction_outputs/predictions_gaussian_intermediate.npz", allow_pickle=True)
-print(npz_data.files)  # Check stored variables
-print(type(npz_data["predictions"]))  # Should be numpy array
-print(npz_data["predictions"][0])  # Check first entry structure
+run_visualization_interactive_npz_folder(PREDICTION_FOLDER)
